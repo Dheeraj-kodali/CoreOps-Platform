@@ -1,0 +1,23 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Byte-compiled / Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+
+# Databases & Backups
+*.db
+*.sqlite3
+backups/
+temp_cloud_backups/
+mock_cloud_storage/
+
+# Virtual Environments
+venv/
+env/
+ENV/

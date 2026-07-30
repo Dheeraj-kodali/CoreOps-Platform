@@ -1,0 +1,185 @@
+{
+  "pass_fail": {
+    "1_file": true,
+    "2_contents": true,
+    "3_sha256": true,
+    "4_restore": true,
+    "5_data_integrity": true,
+    "6_functional": true,
+    "7_reliability": true
+  },
+  "report_data": {
+    "1_file": {
+      "filename": "temple_backup_20260730_123350.db",
+      "filepath": "C:\\Users\\Dheeraj\\OneDrive\\Desktop\\temple\\backups\\temple_backup_20260730_123350.db",
+      "size_bytes": 917504,
+      "size_mb": 0.875,
+      "created_at": "2026-07-30T12:34:15.110453+00:00",
+      "encryption_status": "NONE",
+      "compression_status": "NONE"
+    },
+    "2_contents": {
+      "persons": {
+        "row_count": 8,
+        "columns_count": 15,
+        "primary_keys": [
+          "id"
+        ],
+        "columns": [
+          "temple_id (VARCHAR(36))",
+          "name (VARCHAR(150))",
+          "phone (VARCHAR(20))",
+          "village (VARCHAR(100))",
+          "address (TEXT)"
+        ]
+      },
+      "visitors": {
+        "row_count": 0,
+        "columns_count": 25,
+        "primary_keys": [
+          "id"
+        ],
+        "columns": [
+          "visitor_uuid (VARCHAR(36))",
+          "name (VARCHAR(150))",
+          "phone_number (VARCHAR(20))",
+          "gender (VARCHAR(10))",
+          "age (INTEGER)"
+        ]
+      },
+      "users": {
+        "row_count": 1,
+        "columns_count": 13,
+        "primary_keys": [
+          "id"
+        ],
+        "columns": [
+          "username (VARCHAR(50))",
+          "email (VARCHAR(100))",
+          "password_hash (VARCHAR(255))",
+          "full_name (VARCHAR(100))",
+          "phone_number (VARCHAR(20))"
+        ]
+      },
+      "audit_logs": {
+        "row_count": 55,
+        "columns_count": 20,
+        "primary_keys": [
+          "audit_id"
+        ],
+        "columns": [
+          "audit_id (VARCHAR(36))",
+          "trace_id (VARCHAR(36))",
+          "temple_id (VARCHAR(36))",
+          "user_id (VARCHAR(36))",
+          "role (VARCHAR(50))"
+        ]
+      },
+      "sync_queue": {
+        "row_count": 8,
+        "columns_count": 16,
+        "primary_keys": [
+          "id"
+        ],
+        "columns": [
+          "temple_id (VARCHAR(36))",
+          "visitor_uuid (VARCHAR(36))",
+          "client_id (VARCHAR(100))",
+          "action_type (VARCHAR(20))",
+          "payload_json (TEXT)"
+        ]
+      },
+      "broadcast_campaigns": {
+        "row_count": 6,
+        "columns_count": 28,
+        "primary_keys": [
+          "campaign_id"
+        ],
+        "columns": [
+          "campaign_id (VARCHAR(36))",
+          "temple_id (VARCHAR(36))",
+          "title (VARCHAR(150))",
+          "description (TEXT)",
+          "template_id (VARCHAR(50))"
+        ]
+      },
+      "broadcast_recipients": {
+        "row_count": 22,
+        "columns_count": 23,
+        "primary_keys": [
+          "recipient_id",
+          "id"
+        ],
+        "columns": [
+          "recipient_id (VARCHAR(36))",
+          "campaign_id (VARCHAR(36))",
+          "temple_id (VARCHAR(36))",
+          "person_id (VARCHAR(36))",
+          "person_uuid (VARCHAR(36))"
+        ]
+      },
+      "communication_settings": {
+        "row_count": 0,
+        "columns_count": 16,
+        "primary_keys": [
+          "id"
+        ],
+        "columns": [
+          "mode (VARCHAR(20))",
+          "access_token (TEXT)",
+          "phone_number_id (VARCHAR(50))",
+          "business_account_id (VARCHAR(50))",
+          "verify_token (VARCHAR(100))"
+        ]
+      }
+    },
+    "3_sha256": {
+      "computed_sha256": "2dd35ce432adc9cb3a23905452ebf8cee16e6bf7071a77a162b5e2b5bb2f913f",
+      "metadata_sha256": "2dd35ce432adc9cb3a23905452ebf8cee16e6bf7071a77a162b5e2b5bb2f913f",
+      "file_size_used_bytes": 917504,
+      "timestamp": "2026-07-30T12:34:19.612788+00:00"
+    },
+    "4_restore": {
+      "isolated_db_path": "C:\\Users\\Dheeraj\\OneDrive\\Desktop\\temple\\backups\\temp_isolated_restore.db",
+      "integrity_check": "ok",
+      "foreign_key_errors": 0,
+      "restored_row_counts": {
+        "persons": 8,
+        "visitors": 0,
+        "users": 1,
+        "audit_logs": 55,
+        "sync_queue": 8,
+        "broadcast_campaigns": 6,
+        "broadcast_recipients": 22,
+        "communication_settings": 0
+      }
+    },
+    "5_data_integrity": {
+      "sampled_persons_checked": 3,
+      "sampled_users_checked": 1,
+      "sampled_audits_checked": 3,
+      "sampled_campaigns_checked": 3,
+      "field_matches": "100% Exact Match"
+    },
+    "6_functional": {
+      "login": "HTTP 200 OK",
+      "dashboard": "HTTP 200 OK",
+      "search": "HTTP 200 OK",
+      "crud": "HTTP 200 OK",
+      "broadcast": "HTTP 200 OK"
+    },
+    "7_reliability": {
+      "backup_1": {
+        "filename": "temple_backup_20260730_123350.db",
+        "size_bytes": 917504,
+        "sha256": "2dd35ce432adc9cb3a23905452ebf8cee16e6bf7071a77a162b5e2b5bb2f913f"
+      },
+      "backup_2": {
+        "filename": "temple_backup_20260730_123428.db",
+        "size_bytes": 921600,
+        "sha256": "2c837cf217b7212bd1cda198f15afd193b8ff6d39cc9451590d347ab16082e33"
+      },
+      "comparison": "Both backups valid & non-empty; checksums uniquely generated per timestamp/snapshot state"
+    }
+  }
+}

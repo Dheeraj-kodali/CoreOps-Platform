@@ -1,0 +1,291 @@
+{
+  "pass_fail": {
+    "1_backend": true,
+    "2_database": true,
+    "3_sqlite": true,
+    "4_sync": true,
+    "5_crud": true,
+    "6_dashboard": true,
+    "7_audit": true,
+    "8_broadcast": true,
+    "9_backup": true,
+    "10_restore": true,
+    "11_security": true,
+    "12_performance": true,
+    "13_failure_injection": true
+  },
+  "evidence": {
+    "1_backend": {
+      "routes_count": 5,
+      "routes_sample": [
+        "/api/v1/openapi.json",
+        "/docs",
+        "/docs/oauth2-redirect",
+        "/redoc",
+        "/health"
+      ],
+      "health_status": 200,
+      "health_json": {
+        "status": "HEALTHY",
+        "version": "v2.0",
+        "system": "Sri Kalki Seva Alayam - Visitor Management System",
+        "environment": "development",
+        "multi_tenant": true,
+        "timestamp": "2026-07-30T12:25:38.229608+00:00"
+      },
+      "db_health_json": {
+        "status": "UP",
+        "latency_ms": 1880.02,
+        "database_type": "SQLite (aiosqlite)",
+        "database_size_mb": 0.0,
+        "journal_mode": "WAL"
+      }
+    },
+    "2_database": {
+      "pg_version": "PostgreSQL 18.4 (df16b3c) on aarch64-unknown-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+      "tables_count": 29,
+      "tables": [
+        "alembic_version",
+        "audit_logs",
+        "broadcast_campaigns",
+        "broadcast_recipients",
+        "communication_history_v2",
+        "communication_settings",
+        "dead_letter_jobs",
+        "devices",
+        "message_templates",
+        "notification_templates",
+        "notifications",
+        "permissions",
+        "persons",
+        "purposes",
+        "reports",
+        "roles",
+        "roles_permissions",
+        "sessions",
+        "settings",
+        "sms_logs",
+        "sync_queue",
+        "sync_tokens",
+        "temples",
+        "user_roles",
+        "users",
+        "villages",
+        "visitors",
+        "volunteers",
+        "whatsapp_logs"
+      ],
+      "foreign_keys_sample": [
+        "user_roles_user_id_fkey: FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+        "user_roles_role_id_fkey: FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE",
+        "roles_permissions_role_id_fkey: FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE",
+        "roles_permissions_permission_id_fkey: FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE",
+        "volunteers_user_id_fkey: FOREIGN KEY (user_id) REFERENCES users(id)",
+        "volunteers_temple_id_fkey: FOREIGN KEY (temple_id) REFERENCES temples(id)",
+        "purposes_temple_id_fkey: FOREIGN KEY (temple_id) REFERENCES temples(id)",
+        "persons_temple_id_fkey: FOREIGN KEY (temple_id) REFERENCES temples(id)"
+      ],
+      "indexes_sample": [
+        "roles.roles_pkey",
+        "roles.ix_roles_is_deleted",
+        "roles.ix_roles_id",
+        "roles.ix_roles_name",
+        "roles.ix_roles_created_at",
+        "permissions.permissions_pkey",
+        "permissions.ix_permissions_code",
+        "permissions.ix_permissions_created_at",
+        "permissions.ix_permissions_is_deleted",
+        "permissions.ix_permissions_id"
+      ]
+    },
+    "3_sqlite": {
+      "inserted_id": "p_offline_val_1785414353",
+      "name": "Offline Devotee Local",
+      "phone": "9900011122",
+      "village": "Vijayawada",
+      "status": "SQLite query verified record in local edge storage"
+    },
+    "4_sync": {
+      "person_before_exists": false,
+      "sync_api_response": {
+        "client_id": "val_device_001",
+        "next_sync_token": "token_1785414361_val_devi",
+        "results": [
+          {
+            "event_id": "evt_val_sync_4353722",
+            "entity_id": "p_val_sync_4353722",
+            "status": "SYNCED",
+            "retryable": false,
+            "error_message": null,
+            "server_synced_at": "2026-07-30T12:26:00.824655+00:00"
+          }
+        ],
+        "metrics": {
+          "latency_ms": 5548.14,
+          "items_processed": 1,
+          "success_count": 1,
+          "duplicates_count": 0,
+          "conflicts_count": 0,
+          "failed_count": 0,
+          "payload_size_bytes": 488
+        }
+      },
+      "person_after_exists": true,
+      "persisted_name": "Sync Devotee Validation",
+      "persisted_phone": "9773103935"
+    },
+    "5_crud": {
+      "create": "Inserted Person 'crud_p_1785414365'",
+      "read": "Queried and validated fields",
+      "update": "Mutated total_visits to 5 and village to Kakinada",
+      "delete": "Successfully deleted and verified absence"
+    },
+    "6_dashboard": {
+      "overview": {
+        "visitor_metrics": {
+          "live_visitors": 7,
+          "today_visitors": 7,
+          "weekly_visitors": 7,
+          "monthly_visitors": 7,
+          "yearly_visitors": 7,
+          "repeat_visitors": 0,
+          "first_time_visitors": 7
+        },
+        "communication": {
+          "messages_sent": 0,
+          "delivered": 0,
+          "failed": 0,
+          "pending": 0,
+          "delivery_rate": 100.0
+        },
+        "synchronization": {
+          "pending_queue": 0,
+          "successful_syncs": 0,
+          "failed_syncs": 0,
+          "last_sync_timestamp": "2026-07-30T12:25:58.643998+00:00",
+          "average_duration_ms": 0.0,
+          "success_rate": 100.0
+        },
+        "audit": {
+          "critical_events": 0,
+          "warnings": 0,
+          "errors": 0,
+          "failed_logins": 0,
+          "backups": 0,
+          "restores": 0
+        },
+        "system_health_status": "HEALTHY",
+        "refresh_interval_seconds": 30
+      },
+      "visitor_analytics_sample": [
+        {
+          "hour": 0,
+          "count": 0
+        },
+        {
+          "hour": 1,
+          "count": 0
+        },
+        {
+          "hour": 2,
+          "count": 0
+        }
+      ],
+      "communication_metrics": {
+        "messages_sent": 0,
+        "delivered": 0,
+        "failed": 0,
+        "pending": 0,
+        "delivery_rate": 100.0
+      },
+      "sync_metrics": {
+        "pending_queue": 0,
+        "successful_syncs": 0,
+        "failed_syncs": 0,
+        "last_sync_timestamp": "2026-07-30T12:25:58.643998+00:00",
+        "average_duration_ms": 0.0,
+        "success_rate": 100.0
+      }
+    },
+    "7_audit": {
+      "total_retrieved": 5,
+      "logs": [
+        {
+          "audit_id": "647103bf-2e08-474c-a758-c8f831902f26",
+          "action": "SYNC_START",
+          "user_id": "72696622-1f96-47f0-8c88-3562ca619176",
+          "timestamp": "2026-07-30T12:25:58.643998+00:00",
+          "trace_id": "0c79da5a-d05c-401e-a2bf-3535cab5cbdb"
+        },
+        {
+          "audit_id": "f674b1b6-892e-4a92-a55a-3cb4755ca76a",
+          "action": "USER_LOGIN",
+          "user_id": "72696622-1f96-47f0-8c88-3562ca619176",
+          "timestamp": "2026-07-30T12:25:49.511055+00:00",
+          "trace_id": "135892d2-e3cb-4c01-97af-5473c60c7b1c"
+        },
+        {
+          "audit_id": "084447ac-fc59-4b0b-8e41-43c92b15cc9b",
+          "action": "SYNC_START",
+          "user_id": "72696622-1f96-47f0-8c88-3562ca619176",
+          "timestamp": "2026-07-30T12:24:47.088325+00:00",
+          "trace_id": "8ccfa7d1-4abe-45ef-ae86-fe7272eba357"
+        },
+        {
+          "audit_id": "c8076fdb-7e8b-4e70-b7fa-10d0ce61e48f",
+          "action": "SYNC_START",
+          "user_id": "72696622-1f96-47f0-8c88-3562ca619176",
+          "timestamp": "2026-07-30T12:24:39.114343+00:00",
+          "trace_id": "7138933f-3089-47c6-843e-2ceace8cc66e"
+        },
+        {
+          "audit_id": "3bb8f1a0-d621-4535-9520-7a96f90d5bfa",
+          "action": "CAMPAIGN_COMPLETED",
+          "user_id": null,
+          "timestamp": "2026-07-30T12:24:22.937967+00:00",
+          "trace_id": "65abae4b-ba76-40f3-85d7-15eddb424030"
+        }
+      ]
+    },
+    "8_broadcast": {
+      "campaign_id": "786935a5-c1dd-4f0d-9ac2-f1f74f030a0c",
+      "status": "QUEUED",
+      "total_recipients": 7,
+      "created_at": "2026-07-30T12:26:31.947264+00:00"
+    },
+    "9_backup": {
+      "backup_filename": "temple_backup_20260730_122640.db",
+      "backup_filepath": "C:\\Users\\Dheeraj\\OneDrive\\Desktop\\temple\\backups\\temple_backup_20260730_122640.db",
+      "file_size_bytes": 0,
+      "sha256_checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "integrity_status": "VERIFIED"
+    },
+    "10_restore": {
+      "verified_file": "temple_backup_20260730_122640.db",
+      "expected_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "integrity_pass": true
+    },
+    "11_security": {
+      "no_token_status": 401,
+      "bad_jwt_status": 401,
+      "tenant_isolation_status": 200,
+      "security_headers": {
+        "x-frame-options": "DENY",
+        "x-content-type-options": "nosniff",
+        "x-xss-protection": "1; mode=block"
+      }
+    },
+    "12_performance": {
+      "health_api_latency_ms": 8.42,
+      "neon_db_query_latency_ms": 1888.11,
+      "dashboard_api_latency_ms": 4052.19
+    },
+    "13_failure_injection": {
+      "invalid_payload_status": 422,
+      "non_existent_campaign_status": 404,
+      "duplicate_upload_1_status": 200,
+      "duplicate_upload_2_status": 200,
+      "idempotency_result": "Handled duplicates without system crash"
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "pass_fail": {
+    "scenario_a": true,
+    "scenario_b": true,
+    "scenario_c": true,
+    "scenario_d": true,
+    "scenario_e": true,
+    "scenario_f": true,
+    "scenario_g": true
+  },
+  "evidence": {
+    "scenario_a": {
+      "registered_id": "p_e2e_reg_8921132",
+      "phone": "9888921132",
+      "duplicate_prevention": "Deduplicated successfully (1 DB record)",
+      "latency_ms": 17531.25
+    },
+    "scenario_b": {
+      "event_id": "evt_off_001",
+      "payload": {
+        "name": "Offline Devotee E2E",
+        "village": "Kadapa"
+      },
+      "status": "SQLite outbox persistence verified",
+      "latency_ms": 38.26
+    },
+    "scenario_c": {
+      "synced_event_id": "evt_sync_8938702",
+      "next_sync_token": "token_1785430194_e2e_devi",
+      "neon_db_record_exists": true,
+      "latency_ms": 10870.13
+    },
+    "scenario_d": {
+      "search_status": 200,
+      "broadcast_status": 200,
+      "dashboard_status": 200,
+      "audit_logs_retrieved": 5,
+      "latency_ms": 24617.95
+    },
+    "scenario_e": {
+      "backup_filename": "temple_backup_20260730_165023.db",
+      "file_size_bytes": 942080,
+      "sha256_checksum": "74b127f7ce4955f490638247b3eb043c8293a842a54a88f0305725e505263dc5",
+      "integrity_verification": "VERIFIED",
+      "latency_ms": 31287.78
+    },
+    "scenario_f": {
+      "invalid_jwt_status": 401,
+      "missing_token_status": 401,
+      "security_headers": {
+        "x-frame-options": "DENY",
+        "x-content-type-options": "nosniff"
+      },
+      "latency_ms": 9.79
+    },
+    "scenario_g": {
+      "bulk_events_count": 10,
+      "bulk_upload_latency_ms": 15297.34,
+      "avg_per_event_ms": 1529.73,
+      "total_scenario_latency_ms": 15297.44
+    }
+  }
+}

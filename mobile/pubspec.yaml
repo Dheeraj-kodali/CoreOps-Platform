@@ -1,0 +1,39 @@
+name: temple_visitor_app
+description: "Sri Kalki Seva Alayam - Mobile Visitor Management System"
+publish_to: 'none'
+version: 2.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  go_router: ^13.2.0
+  sqflite: ^2.3.2
+  path: ^1.9.0
+  dio: ^5.4.1
+  shared_preferences: ^2.2.2
+  connectivity_plus: ^5.0.2
+  intl: ^0.20.2
+  google_fonts: ^6.1.0
+  uuid: ^4.3.3
+  share_plus: ^9.0.0
+  path_provider: ^2.1.2
+  file_picker: ^8.0.0
+  pdf: ^3.10.8
+  excel: ^4.0.3
+  url_launcher: ^6.2.5
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  sqflite_common_ffi: ^2.3.2
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,46 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+backend/.env
+
+# Byte-compiled / Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+
+# Databases, Uploads & Backups
+*.db
+*.sqlite3
+backups/
+temp_cloud_backups/
+mock_cloud_storage/
+uploads/
+test_temple.db
+temple.db
+
+# Virtual Environments
+venv/
+env/
+ENV/
+
+# Flutter / Dart
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/build/
+
+# Node / Admin
+admin/node_modules/
+admin/dist/
+admin/.next/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.DS_Store
+Thumbs.db
