@@ -26,6 +26,14 @@ SERVER_START_TIME = time.time()
 
 async def seed_initial_data():
     async with AsyncSessionLocal() as session:
+        try:
+            from sqlalchemy import text
+            await session.execute(text("ALTER TABLE visitors ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;"))
+            await session.execute(text("ALTER TABLE visitors ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;"))
+            await session.commit()
+        except Exception:
+            pass
+
         t_res = await session.execute(select(Temple).filter(Temple.is_deleted.is_(False)))
         temple = t_res.scalars().first()
         if not temple:
