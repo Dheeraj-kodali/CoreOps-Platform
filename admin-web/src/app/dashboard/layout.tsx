@@ -24,13 +24,13 @@ import {
 import { useAuth } from "@/context/AuthContext";
 
 const navItems = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Visitors", href: "/dashboard/visitors", icon: Users },
-  { name: "Reports", href: "/dashboard/reports", icon: FileText },
-  { name: "Communication", href: "/dashboard/communication", icon: MessageSquare },
-  { name: "Temple", href: "/dashboard/temple", icon: Landmark },
-  { name: "Users", href: "/dashboard/users", icon: UserCheck },
-  { name: "Settings", href: "/dashboard/settings", icon: Settings },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["Owner", "Administrator", "Manager", "Reception Staff", "Volunteer", "Security", "Auditor"] },
+  { name: "Visitors", href: "/dashboard/visitors", icon: Users, roles: ["Owner", "Administrator", "Manager", "Reception Staff", "Volunteer"] },
+  { name: "Reports", href: "/dashboard/reports", icon: FileText, roles: ["Owner", "Administrator", "Manager", "Auditor"] },
+  { name: "Communication", href: "/dashboard/communication", icon: MessageSquare, roles: ["Owner", "Administrator", "Manager"] },
+  { name: "Users & Roles", href: "/dashboard/users", icon: UserCheck, roles: ["Owner", "Administrator", "Manager"] },
+  { name: "Temple Profile", href: "/dashboard/temple", icon: Landmark, roles: ["Owner", "Administrator", "Manager"] },
+  { name: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["Owner", "Administrator"] },
 ];
 
 export default function DashboardLayout({
@@ -43,6 +43,8 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  const currentUserRole = user?.role || "Administrator";
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
@@ -211,36 +213,38 @@ export default function DashboardLayout({
               Core Modules
             </div>
 
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            {navItems
+              .filter((item) => item.roles.includes(currentUserRole) || currentUserRole === "Administrator" || currentUserRole === "Owner")
+              .map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 ${
-                    isActive
-                      ? "bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-sm"
-                      : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"
-                  }`}
-                >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-amber-400" : "text-slate-400"}`} />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 ${
+                      isActive
+                        ? "bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-sm"
+                        : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 ${isActive ? "text-amber-400" : "text-slate-400"}`} />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
           </div>
 
           {/* Sidebar Bottom Banner */}
           <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 text-xs text-slate-400">
             <div className="flex items-center justify-between mb-1">
-              <span className="font-semibold text-slate-200">Live Status</span>
+              <span className="font-semibold text-slate-200">Role Security</span>
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
             </div>
             <p className="text-[11px] text-slate-500">
-              Backend Render v1.0 connected
+              {currentUserRole} RBAC active
             </p>
           </div>
         </aside>

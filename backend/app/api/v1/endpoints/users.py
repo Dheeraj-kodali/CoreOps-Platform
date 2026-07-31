@@ -1,4 +1,5 @@
 from typing import List, Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -11,6 +12,10 @@ from app.repositories.user_repository import UserRepository
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
 
 router = APIRouter()
+
+
+class RoleAssignmentRequest(BaseModel):
+    role_ids: List[str]
 
 
 @router.get("/", response_model=List[UserResponse])
@@ -104,6 +109,23 @@ async def update_user(
     if payload.role_ids is not None:
         await user_repo.assign_roles(user.id, payload.role_ids)
 
+    await db.commit()
+    return await user_repo.get_by_id_with_relations(user.id)
+
+
+@router.put("/{user_id}/role", response_model=UserResponse)
+async def assign_user_role(
+    user_id: str,
+    payload: RoleAssignmentRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("users:manage")),
+):
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id_with_relations(user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    await user_repo.assign_roles(user.id, payload.role_ids)
     await db.commit()
     return await user_repo.get_by_id_with_relations(user.id)
 
