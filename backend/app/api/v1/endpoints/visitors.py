@@ -36,17 +36,20 @@ async def list_visitors(
     service: VisitorService = Depends(get_visitor_service),
     current_user: User = Depends(get_current_user),
 ):
-    items, total, pages = await service.list_visitors(
-        search=search,
-        purpose_id=purpose_id,
-        village_id=village_id,
-        date_from=date_from,
-        date_to=date_to,
-        volunteer_id=volunteer_id,
-        page=page,
-        limit=limit,
-    )
-    return VisitorListResponse(items=items, total=total, page=page, limit=limit, pages=pages)
+    try:
+        items, total, pages = await service.list_visitors(
+            search=search,
+            purpose_id=purpose_id,
+            village_id=village_id,
+            date_from=date_from,
+            date_to=date_to,
+            volunteer_id=volunteer_id,
+            page=page,
+            limit=limit,
+        )
+        return VisitorListResponse(items=items, total=total, page=page, limit=limit, pages=pages)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"List visitors error: {str(e)}")
 
 
 @router.get("/check-duplicate")

@@ -31,7 +31,7 @@ class VisitorBase(BaseModel):
     temple_id: Optional[str] = None
     village_id: Optional[str] = None
     village_name_custom: Optional[str] = None
-    purpose_id: str
+    purpose_id: Optional[str] = None
     temple_service: Optional[str] = None
     visitor_date: date
     visitor_time: time

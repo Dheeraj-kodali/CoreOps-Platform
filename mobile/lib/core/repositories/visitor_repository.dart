@@ -1,5 +1,6 @@
 import 'package:uuid/uuid.dart';
 import 'package:temple_visitor_app/core/database/sqlite_database.dart';
+import 'package:temple_visitor_app/core/repositories/sync_repository.dart';
 import 'package:temple_visitor_app/core/services/communication_service.dart';
 import 'package:temple_visitor_app/models/visitor_model.dart';
 import 'package:temple_visitor_app/models/person_model.dart';
@@ -79,6 +80,9 @@ class VisitorRepository {
 
     // Dispatch WhatsApp Check-In Message
     _commService.sendCheckInMessage(visitorModel);
+
+    // Trigger Outbox Transmission to Render FastAPI & Neon DB
+    SyncRepository().processSyncQueue().catchError((_) => false);
 
     return visitorModel;
   }

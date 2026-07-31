@@ -1255,4 +1255,29 @@ class SQLiteDatabase {
       whereArgs: [eventId],
     );
   }
+
+  static Future<void> markVisitorSynced(String visitorId) async {
+    final db = await instance;
+    await db.update(
+      'visitors',
+      {'sync_status': 'SYNCED'},
+      where: 'id = ? OR visitor_uuid = ?',
+      whereArgs: [visitorId, visitorId],
+    );
+  }
+
+  static Future<void> updateSyncQueueStatusByQueueId(int queueId, String status, {String? errorMessage}) async {
+    final db = await instance;
+    await db.update(
+      'sync_queue',
+      {
+        'status': status,
+        if (errorMessage != null) 'error_message': errorMessage,
+        if (status == 'SUCCESS' || status == 'SYNCED') 'server_synced_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'queue_id = ?',
+      whereArgs: [queueId],
+    );
+  }
 }
