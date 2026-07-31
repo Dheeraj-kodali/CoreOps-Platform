@@ -1,5 +1,6 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, List
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Query, status
 from app.api.deps import get_current_user, require_permission, get_visitor_service
 from app.models.user import User
@@ -7,6 +8,10 @@ from app.services.visitor_service import VisitorService
 from app.schemas.visitor import VisitorCreate, VisitorUpdate, VisitorResponse, VisitorListResponse
 
 router = APIRouter()
+
+
+class BulkDeleteRequest(BaseModel):
+    visitor_ids: List[str]
 
 
 @router.post("/", response_model=VisitorResponse, status_code=status.HTTP_201_CREATED)
@@ -54,6 +59,22 @@ async def check_duplicate(
 ):
     duplicate = await service.check_duplicate(name=name, phone_number=phone_number, visitor_date=visitor_date)
     return {"is_duplicate": duplicate is not None, "existing_record": duplicate}
+
+
+@router.post("/bulk-delete", status_code=status.HTTP_200_OK)
+async def bulk_delete_visitors(
+    payload: BulkDeleteRequest,
+    service: VisitorService = Depends(get_visitor_service),
+    current_user: User = Depends(require_permission("visitors:delete")),
+):
+    deleted_count = 0
+    for v_id in payload.visitor_ids:
+        try:
+            await service.delete_visitor(v_id, current_user)
+            deleted_count += 1
+        except Exception:
+            pass
+    return {"message": f"Successfully deleted {deleted_count} visitor records.", "deleted_count": deleted_count}
 
 
 @router.get("/{visitor_id}", response_model=VisitorResponse)
