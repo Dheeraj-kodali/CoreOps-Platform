@@ -10,6 +10,7 @@ from app.api.v1.endpoints import (
     analytics,
     reports,
     communication,
+    settings,
 )
 
 api_router = APIRouter()
@@ -24,3 +25,4 @@ api_router.include_router(notifications.router, prefix="/notifications", tags=["
 api_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 api_router.include_router(reports.router, prefix="/reports", tags=["Reports Export"])
 api_router.include_router(communication.router, prefix="/communication", tags=["Communication"])
+api_router.include_router(settings.router, prefix="/settings", tags=["Temple Settings"])
