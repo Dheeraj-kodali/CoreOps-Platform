@@ -29,6 +29,13 @@ class VisitorService(BaseService[Visitor]):
         data["volunteer_id"] = current_user.id
         data["sync_status"] = "SYNCED"
 
+        if not data.get("purpose_id"):
+            from sqlalchemy import select
+            from app.models.purpose import Purpose
+            p_res = await self.db.execute(select(Purpose.id).filter(Purpose.is_deleted.is_(False)))
+            first_p = p_res.scalars().first()
+            data["purpose_id"] = first_p or "3ef2daff-d716-4285-ac7c-81e702530b44"
+
         visitor = await self.visitor_repo.create(data, user_id=current_user.id)
         await self.commit()
 
