@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const trimmedPassword = passwordInput.trim();
 
     try {
-      // Attempt authentication with live backend POST /api/v1/auth/login
+      // Authenticate with live backend POST /api/v1/auth/login
       const response = await apiClient.post("/auth/login", {
         username: trimmedUsername,
         password: trimmedPassword,
@@ -92,29 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.push("/dashboard");
       return { success: true };
     } catch (err: any) {
-      console.warn("Backend authentication attempt failed or unreachable:", err?.response?.data || err?.message);
-      
-      // Fallback for valid credentials if backend database is empty/reset or offline
-      if ((trimmedUsername === "admin" || trimmedUsername === "owner") && trimmedPassword.length >= 4) {
-        const dummyToken = `demo_jwt_token_${Date.now()}`;
-        const userObj: User = {
-          username: trimmedUsername,
-          role: trimmedUsername === "admin" ? "Administrator" : "Temple Owner",
-          email: `${trimmedUsername}@kalkiseva.org`,
-          fullName: trimmedUsername === "admin" ? "Temple Administrator" : "Temple Owner",
-        };
-
-        localStorage.setItem("admin_access_token", dummyToken);
-        localStorage.setItem("admin_user", JSON.stringify(userObj));
-
-        setToken(dummyToken);
-        setUser(userObj);
-
-        router.push("/dashboard");
-        return { success: true };
-      }
-
-      const errorMessage = err?.response?.data?.detail || "Invalid credentials or backend unavailable";
+      console.warn("Backend authentication failed:", err?.response?.data || err?.message);
+      const errorMessage = err?.response?.data?.detail || "Invalid username or password";
       return { success: false, error: errorMessage };
     }
   };

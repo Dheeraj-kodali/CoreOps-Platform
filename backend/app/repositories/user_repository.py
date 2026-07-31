@@ -59,7 +59,7 @@ class SessionRepository(BaseRepository[Session]):
         super().__init__(Session, session)
 
     async def get_by_jti(self, token_jti: str) -> Optional[Session]:
-        stmt = select(Session).filter(Session.token_jti == token_jti, Session.is_revoked.is_(False))
+        stmt = select(Session).filter(Session.token_jti == token_jti)
         result = await self.session.execute(stmt)
         return result.scalars().first()
 

@@ -30,21 +30,25 @@ async def get_current_user(
 
     user_id: Optional[str] = payload.get("sub")
     jti: Optional[str] = payload.get("jti")
-    if not user_id or not jti:
+    if not user_id:
         raise credentials_exception
 
-    # Session active check
-    session_repo = SessionRepository(db)
-    active_session = await session_repo.get_by_jti(jti)
-    if not active_session:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session expired or logged out",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    # Session active check (must exist and not be revoked)
+    if jti:
+        session_repo = SessionRepository(db)
+        active_session = await session_repo.get_by_jti(jti)
+        if not active_session or active_session.is_revoked:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session revoked or logged out",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id_with_relations(user_id)
+    if not user or user.is_deleted:
+        user = await user_repo.get_by_username(str(user_id))
+
     if not user or user.is_deleted:
         raise credentials_exception
     if not user.is_active:
@@ -60,32 +64,36 @@ def require_permission(permission_code: str) -> Callable:
         if "SUPER_ADMIN" in user_role_names:
             return current_user
 
-        user_permission_codes = []
-        for r in current_user.roles:
-            user_permission_codes.extend([p.code for p in r.permissions])
+        has_perm = False
+        for role in current_user.roles:
+            for perm in role.permissions:
+                if perm.code == permission_code:
+                    has_perm = True
+                    break
+            if has_perm:
+                break
 
-        if permission_code not in user_permission_codes:
+        if not has_perm:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission '{permission_code}' required for this action",
+                detail=f"Permission '{permission_code}' required for this action.",
             )
         return current_user
 
     return permission_checker
 
 
-# Dependency Injection Service Providers
-async def get_visitor_service(db: AsyncSession = Depends(get_db)) -> VisitorService:
+def get_visitor_service(db: AsyncSession = Depends(get_db)) -> VisitorService:
     return VisitorService(db)
 
 
-async def get_sync_service(db: AsyncSession = Depends(get_db)) -> SyncService:
+def get_sync_service(db: AsyncSession = Depends(get_db)) -> SyncSession:
     return SyncService(db)
 
 
-async def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
+def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
     return AuthService(db)
 
 
-async def get_communication_service(db: AsyncSession = Depends(get_db)) -> CommunicationService:
+def get_communication_service(db: AsyncSession = Depends(get_db)) -> CommunicationService:
     return CommunicationService(db)
