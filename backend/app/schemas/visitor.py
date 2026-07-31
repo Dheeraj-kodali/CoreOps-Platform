@@ -23,11 +23,11 @@ class VillageResponse(BaseModel):
 
 
 class VisitorBase(BaseModel):
-    name: str = Field(..., min_length=2, max_length=150)
-    phone_number: str = Field(..., pattern=r"^\+?[0-9]{10,15}$")
-    gender: str = Field(..., pattern="^(MALE|FEMALE|OTHER)$")
-    age: int = Field(..., ge=1, le=120)
-    persons_count: int = Field(default=1, ge=1, le=100)
+    name: str = Field(..., min_length=1, max_length=150)
+    phone_number: str
+    gender: Optional[str] = "MALE"
+    age: Optional[int] = 30
+    persons_count: Optional[int] = 1
     temple_id: Optional[str] = None
     village_id: Optional[str] = None
     village_name_custom: Optional[str] = None
