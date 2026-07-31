@@ -1,0 +1,14 @@
+# Netlify Configuration for Temple Management Platform (admin-web)
+
+[build]
+  base = "admin-web"
+  command = "npm run build"
+  publish = "out"
+
+[build.environment]
+  NEXT_PUBLIC_API_BASE_URL = "https://coreops-platform.onrender.com/api/v1"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
