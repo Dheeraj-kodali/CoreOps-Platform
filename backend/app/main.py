@@ -1,3 +1,4 @@
+import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +7,7 @@ from app.core.database import engine, Base, AsyncSessionLocal
 from app.core.security import get_password_hash
 from app.core.exceptions import AppException, app_exception_handler
 from app.api.v1.router import api_router
+from app.api.v2.router import api_v2_router
 import app.models
 from app.models.user import User, Role, UserRole
 from app.models.temple import Temple
@@ -16,12 +18,14 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from app.core.middleware import TenantIsolationMiddleware, SecurityHeadersMiddleware, AuditTracingMiddleware
-from app.api.v2.router import api_v2_router
+from app.core.logging_handler import ops_log_handler
+from app.services.scheduler import global_scheduler
+
+SERVER_START_TIME = time.time()
 
 
 async def seed_initial_data():
     async with AsyncSessionLocal() as session:
-        # Seed Temple if empty
         t_res = await session.execute(select(Temple).filter(Temple.is_deleted.is_(False)))
         temple = t_res.scalars().first()
         if not temple:
@@ -38,7 +42,6 @@ async def seed_initial_data():
             await session.commit()
             await session.refresh(temple)
 
-        # Seed Roles if empty
         res = await session.execute(select(Role).filter(Role.is_deleted.is_(False)))
         roles = res.scalars().all()
         if not roles:
@@ -51,7 +54,6 @@ async def seed_initial_data():
         else:
             admin_role = next((r for r in roles if r.name == "SUPER_ADMIN"), roles[0])
 
-        # Seed initial admin user if empty
         user_res = await session.execute(
             select(User).options(selectinload(User.roles)).filter(User.username == "admin", User.is_deleted.is_(False))
         )
@@ -69,12 +71,10 @@ async def seed_initial_data():
             await session.commit()
             await session.refresh(super_user)
 
-            # Assign role
             user_role = UserRole(user_id=super_user.id, role_id=admin_role.id)
             session.add(user_role)
             await session.commit()
 
-        # Seed Purposes if empty
         p_res = await session.execute(select(Purpose).filter(Purpose.is_deleted.is_(False)))
         if not p_res.scalars().all():
             purposes = [
@@ -86,7 +86,6 @@ async def seed_initial_data():
             session.add_all(purposes)
             await session.commit()
 
-        # Seed Villages if empty
         v_res = await session.execute(select(Village).filter(Village.is_deleted.is_(False)))
         if not v_res.scalars().all():
             villages = [
@@ -99,9 +98,7 @@ async def seed_initial_data():
 
 
 async def seed_communication_defaults():
-    """Seed default communication settings and message templates."""
     async with AsyncSessionLocal() as session:
-        # Seed CommunicationSetting if empty
         cs_res = await session.execute(
             select(CommunicationSetting).filter(CommunicationSetting.is_deleted.is_(False))
         )
@@ -120,7 +117,6 @@ async def seed_communication_defaults():
             session.add(default_settings)
             await session.commit()
 
-        # Seed MessageTemplates if empty
         mt_res = await session.execute(
             select(MessageTemplate).filter(MessageTemplate.is_deleted.is_(False))
         )
@@ -166,7 +162,11 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     await seed_initial_data()
     await seed_communication_defaults()
+    
+    # Start production background scheduler
+    global_scheduler.start()
     yield
+    global_scheduler.stop()
 
 
 app = FastAPI(
@@ -195,4 +195,10 @@ app.include_router(api_v2_router, prefix=settings.API_V2_STR)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "HEALTHY", "system": settings.PROJECT_NAME}
+    uptime_sec = int(time.time() - SERVER_START_TIME)
+    return {
+        "status": "HEALTHY",
+        "system": settings.PROJECT_NAME,
+        "uptime_seconds": uptime_sec,
+        "scheduler_status": global_scheduler.get_status()["status"],
+    }
