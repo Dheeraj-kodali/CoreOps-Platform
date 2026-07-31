@@ -123,10 +123,11 @@ async def get_admin_dashboard(
 
     # Purpose breakdown for charts
     purpose_res = await db.execute(
-        select(Purpose.name_en, func.count(Visitor.id).label("count"))
-        .join(Visitor, Visitor.purpose_id == Purpose.id)
+        select(func.coalesce(Purpose.name_en, "General Darshan").label("name_en"), func.count(Visitor.id).label("count"))
+        .select_from(Visitor)
+        .outerjoin(Purpose, Visitor.purpose_id == Purpose.id)
         .filter(Visitor.is_deleted.is_(False))
-        .group_by(Purpose.name_en)
+        .group_by(func.coalesce(Purpose.name_en, "General Darshan"))
     )
     rows = purpose_res.all()
     if rows:

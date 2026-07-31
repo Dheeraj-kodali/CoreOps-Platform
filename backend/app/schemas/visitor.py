@@ -72,7 +72,7 @@ class VisitorResponse(VisitorBase):
     sync_status: str
     created_at: datetime
     updated_at: datetime
-    purpose: PurposeResponse
+    purpose: Optional[PurposeResponse] = None
     village: Optional[VillageResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
