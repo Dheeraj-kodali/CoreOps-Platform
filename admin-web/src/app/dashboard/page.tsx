@@ -16,6 +16,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 interface Visitor {
   id: string;
@@ -51,11 +52,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<string>("");
 
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+
   const loadLiveDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Try primary admin dashboard endpoint
-      const dashboardRes = await apiClient.get("/analytics/dashboard").catch(() => null);
+      // Primary admin dashboard endpoint returns all metrics, recent visitors & purpose breakdown
+      const dashboardRes = await apiClient.get("/analytics/dashboard");
 
       if (dashboardRes?.data) {
         const d = dashboardRes.data;
@@ -72,50 +75,28 @@ export default function DashboardPage() {
           setRecentVisitors(d.recent_visitors);
         }
         if (d.purpose_breakdown?.length) {
-          setPurposeBreakdown(d.purpose_breakdown);
+          setPurposeBreakdown(
+            d.purpose_breakdown.map((item: any) => ({
+              name: item.name || item.name_en || "General Darshan",
+              count: item.count || 0,
+              percentage: item.percentage || 0,
+            }))
+          );
         }
       }
-
-      // 2. Fetch live summary if needed
-      const summaryRes = await apiClient.get("/analytics/summary").catch(() => null);
-      if (summaryRes?.data) {
-        const s = summaryRes.data;
-        setStats((prev) => ({
-          ...prev,
-          todaysVisitors: s.today_visitors ?? prev.todaysVisitors,
-          pendingSync: s.live_statistics?.pending_sync_queue ?? prev.pendingSync,
-        }));
-      }
-
-      // 3. Fetch live visitors list
-      const visitorsRes = await apiClient.get("/visitors/?limit=10").catch(() => null);
-      if (visitorsRes?.data?.items?.length) {
-        setRecentVisitors(visitorsRes.data.items);
-      }
-
-      // 4. Fetch live purpose analytics
-      const purposeRes = await apiClient.get("/analytics/purpose-breakdown").catch(() => null);
-      if (purposeRes?.data?.breakdown?.length) {
-        setPurposeBreakdown(
-          purposeRes.data.breakdown.map((item: any) => ({
-            name: item.name_en || "General Darshan",
-            count: item.count || 0,
-            percentage: item.percentage || 0,
-          }))
-        );
-      }
-
       setLastRefreshed(new Date().toLocaleTimeString());
-    } catch (err) {
-      console.warn("Could not retrieve all dashboard endpoints cleanly:", err);
+    } catch (err: any) {
+      console.warn("Could not retrieve live dashboard data:", err?.message);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadLiveDashboardData();
-  }, [loadLiveDashboardData]);
+    if (!authLoading && isAuthenticated) {
+      loadLiveDashboardData();
+    }
+  }, [authLoading, isAuthenticated, loadLiveDashboardData]);
 
   const cards = [
     {

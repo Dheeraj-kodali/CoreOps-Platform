@@ -51,7 +51,7 @@ interface VisitorRecord {
 }
 
 export default function VisitorsManagementPage() {
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [visitors, setVisitors] = useState<VisitorRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -142,8 +142,10 @@ export default function VisitorsManagementPage() {
   }, []);
 
   useEffect(() => {
-    fetchVisitors();
-  }, [fetchVisitors]);
+    if (!authLoading && isAuthenticated) {
+      fetchVisitors();
+    }
+  }, [authLoading, isAuthenticated, fetchVisitors]);
 
   // Filter & Search Logic
   const filteredVisitors = useMemo(() => {
