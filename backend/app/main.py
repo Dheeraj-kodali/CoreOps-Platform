@@ -193,6 +193,19 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 app.include_router(api_v2_router, prefix=settings.API_V2_STR)
 
 
+@app.get("/")
+async def root_landing():
+    return {
+        "title": "Temple Visitor Management Platform API",
+        "version": "1.0.0",
+        "status": "RUNNING",
+        "documentation": "/docs",
+        "health": "/health",
+        "api_v1": f"{settings.API_V1_STR}",
+        "api_v2": f"{settings.API_V2_STR}",
+    }
+
+
 @app.get("/health")
 async def health_check():
     uptime_sec = int(time.time() - SERVER_START_TIME)
