@@ -21,6 +21,7 @@ import {
   X,
   Shield,
   ShieldCheck,
+  Activity,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -30,6 +31,7 @@ const navItems = [
   { name: "Reports", href: "/dashboard/reports", icon: FileText, roles: ["Owner", "Administrator", "Manager", "Auditor"] },
   { name: "Communication", href: "/dashboard/communication", icon: MessageSquare, roles: ["Owner", "Administrator", "Manager"] },
   { name: "Users & Roles", href: "/dashboard/users", icon: UserCheck, roles: ["Owner", "Administrator", "Manager"] },
+  { name: "Operations Center", href: "/dashboard/operations", icon: Activity, roles: ["Owner", "Administrator", "Manager", "Auditor"] },
   { name: "Security Center", href: "/dashboard/security", icon: ShieldCheck, roles: ["Owner", "Administrator", "Manager", "Auditor"] },
   { name: "Temple Profile", href: "/dashboard/temple", icon: Landmark, roles: ["Owner", "Administrator", "Manager"] },
   { name: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["Owner", "Administrator"] },
