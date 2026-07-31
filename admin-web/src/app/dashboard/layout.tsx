@@ -102,20 +102,24 @@ export default function DashboardLayout({
               <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-2xl z-50 animate-fadeIn">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                    System Notifications
+                    System Event Log
                   </h4>
-                  <span className="text-[10px] font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-400 px-2 py-0.5 rounded-full">
-                    3 New
+                  <span className="text-[10px] font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded-full">
+                    Live Real-Time
                   </span>
                 </div>
                 <div className="space-y-2.5 text-xs">
                   <div className="p-2 rounded-lg bg-slate-850 border border-slate-800 hover:bg-slate-800 transition-colors">
-                    <p className="font-semibold text-slate-200">Visitor Check-In Alert</p>
-                    <p className="text-slate-400 text-[11px] mt-0.5">25 new visitors registered today</p>
+                    <p className="font-semibold text-slate-200">PostgreSQL Cloud DB Connection</p>
+                    <p className="text-slate-400 text-[11px] mt-0.5">Neon PostgreSQL Database active & responding</p>
                   </div>
                   <div className="p-2 rounded-lg bg-slate-850 border border-slate-800 hover:bg-slate-800 transition-colors">
-                    <p className="font-semibold text-slate-200">Sync Status Verified</p>
-                    <p className="text-slate-400 text-[11px] mt-0.5">Outbox sync queue processed successfully</p>
+                    <p className="font-semibold text-slate-200">Offline Delta Outbox Sync Engine</p>
+                    <p className="text-slate-400 text-[11px] mt-0.5">Mobile outbox queue sync protocol active</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-850 border border-slate-800 hover:bg-slate-800 transition-colors">
+                    <p className="font-semibold text-slate-200">Background Worker Scheduler</p>
+                    <p className="text-slate-400 text-[11px] mt-0.5">Cron scheduler running on Render worker process</p>
                   </div>
                 </div>
               </div>

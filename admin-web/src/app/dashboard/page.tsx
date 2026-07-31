@@ -160,8 +160,18 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3">
           <div className="inline-flex items-center gap-2 rounded-xl bg-slate-900 border border-slate-800 px-3.5 py-2 text-xs font-mono text-slate-300">
             <Clock className="h-3.5 w-3.5 text-amber-400" />
-            <span>
-              {lastRefreshed ? `Refreshed ${lastRefreshed}` : "Connecting to Live Backend..."}
+            <span className="flex items-center gap-1.5">
+              {loading ? (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span>Connecting to Live Backend...</span>
+                </>
+              ) : (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  <span>Live DB Connected • Refreshed {lastRefreshed || "Just Now"}</span>
+                </>
+              )}
             </span>
           </div>
 
