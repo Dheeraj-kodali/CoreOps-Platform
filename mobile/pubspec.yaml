@@ -1,7 +1,7 @@
 name: temple_visitor_app
 description: "Sri Kalki Seva Alayam - Mobile Visitor Management System"
 publish_to: 'none'
-version: 1.0.1+2
+version: 1.1.0+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -28,6 +28,7 @@ dependencies:
   excel: ^4.0.3
   url_launcher: ^6.2.5
   cupertino_icons: ^1.0.6
+  geolocator: ^12.0.0
 
 dev_dependencies:
   flutter_test:

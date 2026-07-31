@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:temple_visitor_app/core/repositories/visitor_repository.dart';
 import 'package:temple_visitor_app/core/services/communication_service.dart';
+import 'package:temple_visitor_app/core/services/location_service.dart';
 import 'package:temple_visitor_app/core/database/sqlite_database.dart';
 import 'package:temple_visitor_app/models/communication_models.dart';
 import 'package:temple_visitor_app/models/person_model.dart';
@@ -27,6 +28,13 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
   int _membersCount = 1;
   bool _isSubmitting = false;
 
+  // Location State Variables
+  double? _latitude;
+  double? _longitude;
+  bool _isAcquiringLocation = false;
+  String? _locationErrorMessage;
+  bool _isLocationPermanentlyDenied = false;
+
   PersonModel? _matchedPerson;
 
   final List<String> _purposes = [
@@ -41,6 +49,30 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
   void initState() {
     super.initState();
     _phoneController.addListener(_onPhoneChanged);
+    _acquireGpsLocation();
+  }
+
+  Future<void> _acquireGpsLocation() async {
+    setState(() {
+      _isAcquiringLocation = true;
+      _locationErrorMessage = null;
+      _isLocationPermanentlyDenied = false;
+    });
+
+    final result = await LocationService.getCurrentLocation();
+
+    if (mounted) {
+      setState(() {
+        _isAcquiringLocation = false;
+        if (result.isSuccess) {
+          _latitude = result.latitude;
+          _longitude = result.longitude;
+        } else {
+          _locationErrorMessage = result.errorMessage;
+          _isLocationPermanentlyDenied = result.isPermanentlyDenied;
+        }
+      });
+    }
   }
 
   @override
@@ -89,6 +121,8 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
         purpose: _selectedPurpose,
         personsCount: _membersCount,
         notes: _notesController.text.trim(),
+        latitude: _latitude,
+        longitude: _longitude,
       );
 
       if (!mounted) return;
@@ -391,7 +425,9 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            _buildLocationCard(),
+            const SizedBox(height: 20),
 
             // Large Reception-Friendly "VISITOR ENTERED" Button
             SizedBox(
@@ -414,6 +450,122 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLocationCard() {
+    if (_isAcquiringLocation) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.amber.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.amber.shade400),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFFD4AF37)),
+            ),
+            SizedBox(width: 12),
+            Text(
+              'Acquiring GPS location...',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_latitude != null && _longitude != null) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.green.shade600),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.location_on, color: Colors.green, size: 24),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '📍 Device GPS Location Captured',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
+                  ),
+                  Text(
+                    'Coordinates: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.green, size: 20),
+              onPressed: _acquireGpsLocation,
+              tooltip: 'Refresh Location',
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.orange.shade600),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _locationErrorMessage ?? 'GPS location required for visitor entry',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.brown),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                ),
+                icon: const Icon(Icons.my_location, size: 16),
+                label: const Text('RETRY LOCATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                onPressed: _acquireGpsLocation,
+              ),
+              if (_isLocationPermanentlyDenied) ...[
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  ),
+                  icon: const Icon(Icons.settings, size: 16),
+                  label: const Text('APP SETTINGS', style: TextStyle(fontSize: 11)),
+                  onPressed: () => LocationService.openSettings(),
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }

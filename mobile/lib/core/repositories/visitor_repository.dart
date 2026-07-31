@@ -41,10 +41,17 @@ class VisitorRepository {
     required String purpose,
     required int personsCount,
     String? notes,
+    double? latitude,
+    double? longitude,
   }) async {
     final now = DateTime.now();
     final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     final timeInStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+    final gpsLocationNote = (latitude != null && longitude != null)
+        ? ' [GPS: ${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}]'
+        : '';
+    final combinedNotes = '${notes ?? ""}$gpsLocationNote'.trim();
 
     final visitId = await SQLiteDatabase.registerVisit(
       name: name,
@@ -52,7 +59,7 @@ class VisitorRepository {
       village: village,
       purpose: purpose,
       groupMembers: personsCount,
-      notes: notes,
+      notes: combinedNotes,
     );
 
     final visitorModel = VisitorModel(

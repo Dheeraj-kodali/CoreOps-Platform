@@ -38,6 +38,8 @@ class VisitorBase(BaseModel):
     notes: Optional[str] = None
     photo_url: Optional[str] = None
     id_proof_url: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 class VisitorCreate(VisitorBase):
@@ -59,6 +61,8 @@ class VisitorUpdate(BaseModel):
     notes: Optional[str] = None
     photo_url: Optional[str] = None
     id_proof_url: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 class VisitorResponse(VisitorBase):

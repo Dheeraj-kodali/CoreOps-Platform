@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Date, Time, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Date, Time, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel
 
@@ -27,6 +27,9 @@ class Visitor(BaseModel):
     notes = Column(Text, nullable=True)
     photo_url = Column(String(500), nullable=True)
     id_proof_url = Column(String(500), nullable=True)
+    
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
     
     sync_status = Column(String(20), default="SYNCED", nullable=False)  # PENDING, SYNCED, CONFLICT
 
