@@ -70,7 +70,7 @@ async def get_operations_health(
         "storage_usage": disk_str,
         "cpu_usage": cpu_pct,
         "memory_usage": mem_str,
-        "application_version": "v2.0.0-production",
+        "application_version": "v1.0.0-production",
     }
 
 
@@ -178,7 +178,7 @@ async def get_operations_logs(
 @router.get("/version")
 async def get_operations_version():
     return {
-        "version": "v2.0.0",
+        "version": "v1.0.0",
         "build_date": "2026-07-31",
         "environment": "production",
         "backend": "FastAPI 0.109.0",
