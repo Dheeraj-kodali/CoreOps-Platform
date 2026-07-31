@@ -177,17 +177,20 @@ app = FastAPI(
 
 app.add_exception_handler(AppException, app_exception_handler)
 
+# Custom Middlewares
+app.add_middleware(AuditTracingMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(TenantIsolationMiddleware)
+
+# CORSMiddleware added LAST so Starlette places it FIRST in execution order
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.add_middleware(AuditTracingMiddleware)
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(TenantIsolationMiddleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 app.include_router(api_v2_router, prefix=settings.API_V2_STR)
