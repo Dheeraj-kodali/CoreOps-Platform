@@ -223,6 +223,9 @@ class VisitorRepository {
 
     await SQLiteDatabase.checkOutVisitor(id, timeOutStr, durationStr);
 
+    // Trigger Outbox Transmission for Checkout Event to Render Backend
+    SyncRepository().processSyncQueue().catchError((_) => false);
+
     final updatedRaw = await SQLiteDatabase.getVisitorById(id);
     if (updatedRaw != null) {
       final updatedModel = VisitorModel.fromJson(updatedRaw);

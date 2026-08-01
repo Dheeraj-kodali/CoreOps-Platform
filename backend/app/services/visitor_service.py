@@ -132,3 +132,47 @@ class VisitorService(BaseService[Visitor]):
         if success:
             await self.commit()
         return success
+
+    async def checkout_visitor(self, visitor_uuid: str, checkout_time: Optional[str] = None, duration: Optional[str] = None, current_user: Optional[User] = None) -> Visitor:
+        visitor = await self.visitor_repo.get_by_uuid(visitor_uuid)
+        if not visitor:
+            visitor = await self.visitor_repo.get_by_id(visitor_uuid)
+        if not visitor or visitor.is_deleted:
+            raise AppException(status_code=404, detail="Visitor record not found", error_code="VISITOR_NOT_FOUND")
+
+        from datetime import datetime
+        now_str = checkout_time or datetime.now().strftime("%H:%M:%S")
+        dur_str = duration or "1 min"
+
+        current_notes = visitor.notes or ""
+        if "CHECKED_OUT" not in current_notes:
+            checkout_tag = f"[CHECKED_OUT] Out: {now_str} ({dur_str})"
+            new_notes = f"{current_notes} {checkout_tag}".strip() if current_notes else checkout_tag
+        else:
+            new_notes = current_notes
+
+        updated = await self.visitor_repo.update(visitor, {"notes": new_notes}, user_id=current_user.id if current_user else None)
+        await self.commit()
+
+        try:
+            from app.services.communication_service import CommunicationService
+            comm_service = CommunicationService(self.db)
+            await comm_service.prepare_and_record_message(
+                visitor_id=updated.id,
+                phone=updated.phone_number,
+                message_type="EXIT",
+                context={
+                    "name": updated.name,
+                    "phone": updated.phone_number,
+                    "date": str(updated.visitor_date),
+                    "time": str(now_str),
+                    "duration": str(dur_str),
+                    "visitor_id": updated.visitor_uuid,
+                    "temple": "Sri Kalki Seva Alayam",
+                    "volunteer": current_user.full_name or current_user.username if current_user else "Volunteer",
+                },
+            )
+        except Exception:
+            pass
+
+        return updated

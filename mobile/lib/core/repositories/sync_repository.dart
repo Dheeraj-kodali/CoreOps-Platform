@@ -153,25 +153,59 @@ class SyncRepository {
       AppLogger.info('Found ${queueItems.length} pending items in sync_queue table');
       for (final item in queueItems) {
         final qId = item['queue_id'] as int;
+        final op = item['operation']?.toString().toUpperCase() ?? 'CREATE';
+        final entityId = item['entity_id']?.toString() ?? '';
+
         try {
           final rawPayload = item['payload'] as String?;
           if (rawPayload != null && rawPayload.isNotEmpty) {
             final Map<String, dynamic> payload = jsonDecode(rawPayload);
-            if (!payload.containsKey('purpose_id') || payload['purpose_id'] == null) {
-              payload['purpose_id'] = purposeId;
-            }
-            final res = await _dio.post('/visitors/', data: payload);
-            if (res.statusCode == 200 || res.statusCode == 201) {
-              await SQLiteDatabase.updateSyncQueueStatusByQueueId(qId, 'SUCCESS');
-              final vUuid = payload['visitor_uuid']?.toString();
-              if (vUuid != null) {
-                await SQLiteDatabase.markVisitorSynced(vUuid);
+
+            if (op == 'CHECKOUT') {
+              final visitId = payload['visit_id']?.toString() ?? entityId;
+              final checkoutTime = payload['check_out']?.toString();
+              final duration = payload['visit_duration']?.toString();
+              final checkoutBody = {
+                'checkout_time': checkoutTime,
+                'duration': duration,
+              };
+              AppLogger.info('Posting checkout for visitor $visitId to backend...');
+              final res = await _dio.put('/visitors/$visitId/checkout', data: checkoutBody);
+              if (res.statusCode == 200 || res.statusCode == 201) {
+                await SQLiteDatabase.updateSyncQueueStatusByQueueId(qId, 'SUCCESS');
+                AppLogger.info('[SYNC CHECKOUT SUCCESS] sync_queue event $qId checkout synced to Neon DB');
+              } else {
+                allSuccess = false;
               }
-              AppLogger.info('[SYNC SUCCESS] sync_queue event $qId successfully synced to Neon DB');
+            } else {
+              if (!payload.containsKey('purpose_id') || payload['purpose_id'] == null) {
+                payload['purpose_id'] = purposeId;
+              }
+              final res = await _dio.post('/visitors/', data: payload);
+              if (res.statusCode == 200 || res.statusCode == 201) {
+                await SQLiteDatabase.updateSyncQueueStatusByQueueId(qId, 'SUCCESS');
+                final vUuid = payload['visitor_uuid']?.toString();
+                if (vUuid != null) {
+                  await SQLiteDatabase.markVisitorSynced(vUuid);
+                }
+                AppLogger.info('[SYNC SUCCESS] sync_queue event $qId successfully synced to Neon DB');
+              }
             }
           }
+        } on DioException catch (e) {
+          if (op == 'CHECKOUT' && e.response?.statusCode == 404) {
+            // Visitor not found on backend (e.g. checked out before check-in synced)
+            AppLogger.warning('Visitor $entityId checkout 404 on backend. Marking sync_queue item SUCCESS.');
+            await SQLiteDatabase.updateSyncQueueStatusByQueueId(qId, 'SUCCESS');
+          } else if (e.response?.statusCode == 409) {
+            AppLogger.warning('Event $qId returned 409 Conflict. Marking SUCCESS.');
+            await SQLiteDatabase.updateSyncQueueStatusByQueueId(qId, 'SUCCESS');
+          } else {
+            AppLogger.error('Failed to sync queue event $qId ($op): $e');
+            allSuccess = false;
+          }
         } catch (e) {
-          AppLogger.error('Failed to post sync_queue event $qId: $e');
+          AppLogger.error('Failed to sync queue event $qId ($op): $e');
           allSuccess = false;
         }
       }

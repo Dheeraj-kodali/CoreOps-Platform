@@ -14,6 +14,11 @@ class BulkDeleteRequest(BaseModel):
     visitor_ids: List[str]
 
 
+class VisitorCheckoutRequest(BaseModel):
+    checkout_time: Optional[str] = None
+    duration: Optional[str] = None
+
+
 @router.post("/", response_model=VisitorResponse, status_code=status.HTTP_201_CREATED)
 async def create_visitor(
     payload: VisitorCreate,
@@ -106,3 +111,16 @@ async def delete_visitor(
     current_user: User = Depends(require_permission("visitors:delete")),
 ):
     await service.delete_visitor(visitor_id, current_user)
+
+
+@router.put("/{visitor_id}/checkout", response_model=VisitorResponse)
+@router.post("/{visitor_id}/checkout", response_model=VisitorResponse)
+async def checkout_visitor(
+    visitor_id: str,
+    payload: Optional[VisitorCheckoutRequest] = None,
+    service: VisitorService = Depends(get_visitor_service),
+    current_user: User = Depends(get_current_user),
+):
+    c_time = payload.checkout_time if payload else None
+    dur = payload.duration if payload else None
+    return await service.checkout_visitor(visitor_id, checkout_time=c_time, duration=dur, current_user=current_user)
