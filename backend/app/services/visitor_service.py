@@ -85,6 +85,26 @@ class VisitorService(BaseService[Visitor]):
             # Async notification failures do not break visitor creation HTTP response
             pass
 
+        # Broadcast real-time WebSocket event
+        try:
+            from app.core.websocket import websocket_manager
+            from datetime import datetime, timezone
+            await websocket_manager.broadcast_event(
+                "VISITOR_REGISTERED",
+                {
+                    "visitor_id": str(synced_visitor.id),
+                    "uuid": synced_visitor.visitor_uuid,
+                    "name": synced_visitor.name,
+                    "phone": synced_visitor.phone_number,
+                    "persons_count": synced_visitor.persons_count,
+                    "date": str(synced_visitor.visitor_date),
+                    "time": str(synced_visitor.visitor_time),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        except Exception:
+            pass
+
         return synced_visitor
 
     async def list_visitors(
@@ -124,13 +144,41 @@ class VisitorService(BaseService[Visitor]):
         visitor = await self.get_visitor_by_id(visitor_id)
         updated = await self.visitor_repo.update(visitor, payload.model_dump(exclude_unset=True), user_id=current_user.id)
         await self.commit()
-        return await self.visitor_repo.get_by_uuid(updated.visitor_uuid)
+        synced = await self.visitor_repo.get_by_uuid(updated.visitor_uuid)
+        try:
+            from app.core.websocket import websocket_manager
+            from datetime import datetime, timezone
+            await websocket_manager.broadcast_event(
+                "VISITOR_UPDATED",
+                {
+                    "visitor_id": str(synced.id),
+                    "uuid": synced.visitor_uuid,
+                    "name": synced.name,
+                    "phone": synced.phone_number,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        except Exception:
+            pass
+        return synced
 
     async def delete_visitor(self, visitor_id: str, current_user: User) -> bool:
         visitor = await self.get_visitor_by_id(visitor_id)
         success = await self.visitor_repo.soft_delete(visitor.id, user_id=current_user.id)
         if success:
             await self.commit()
+            try:
+                from app.core.websocket import websocket_manager
+                from datetime import datetime, timezone
+                await websocket_manager.broadcast_event(
+                    "VISITOR_DELETED",
+                    {
+                        "visitor_id": str(visitor_id),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+            except Exception:
+                pass
         return success
 
     async def checkout_visitor(self, visitor_uuid: str, checkout_time: Optional[str] = None, duration: Optional[str] = None, current_user: Optional[User] = None) -> Visitor:
@@ -181,6 +229,22 @@ class VisitorService(BaseService[Visitor]):
                     "temple": "Sri Kalki Seva Alayam",
                     "volunteer": current_user.full_name or current_user.username if current_user else "Volunteer",
                 },
+            )
+        except Exception:
+            pass
+
+        try:
+            from app.core.websocket import websocket_manager
+            from datetime import datetime, timezone
+            await websocket_manager.broadcast_event(
+                "VISITOR_CHECKED_OUT",
+                {
+                    "visitor_id": str(updated.id),
+                    "uuid": updated.visitor_uuid,
+                    "name": updated.name,
+                    "phone": updated.phone_number,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
             )
         except Exception:
             pass

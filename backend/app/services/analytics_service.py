@@ -27,28 +27,41 @@ class AnalyticsService:
         start_of_month = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
         start_of_year = datetime(now.year, 1, 1, tzinfo=timezone.utc)
 
-        # 1. Base query for temple
-        q_base = select(Person).filter(Person.temple_id == temple_id)
-        res_all = await self.db.execute(q_base)
-        all_visitors = res_all.scalars().all()
+        from app.models.visitor import Visitor
+        from datetime import date as date_cls
+        today_date = date_cls.today()
 
-        total_count = len(all_visitors)
-        live_count = sum(1 for v in all_visitors if not getattr(v, "is_checked_out", False))
-        today_count = total_count
-        weekly_count = total_count
-        monthly_count = total_count
-        yearly_count = total_count
+        v_res = await self.db.execute(select(Visitor).filter(Visitor.is_deleted.is_(False)))
+        all_visitors = list(v_res.scalars().all())
+
+        total_count = sum(v.persons_count for v in all_visitors)
+        today_count = sum(v.persons_count for v in all_visitors if v.visitor_date == today_date)
+        
+        week_start_date = today_date - timedelta(days=today_date.weekday())
+        weekly_count = sum(v.persons_count for v in all_visitors if v.visitor_date and v.visitor_date >= week_start_date)
+
+        month_start_date = today_date.replace(day=1)
+        monthly_count = sum(v.persons_count for v in all_visitors if v.visitor_date and v.visitor_date >= month_start_date)
+
+        year_start_date = today_date.replace(month=1, day=1)
+        yearly_count = sum(v.persons_count for v in all_visitors if v.visitor_date and v.visitor_date >= year_start_date)
+
+        today_checkouts = sum(
+            v.persons_count for v in all_visitors
+            if v.visitor_date == today_date and v.notes and ("CHECKED_OUT" in v.notes or "Visitor Left" in v.notes)
+        )
+        live_count = max(0, today_count - today_checkouts)
 
         # Repeat vs First-time calculation based on phone frequency
         phone_counts: Dict[str, int] = {}
         for v in all_visitors:
-            ph = getattr(v, "phone", None) or getattr(v, "mobile_number", None)
+            ph = v.phone_number
             if ph:
                 phone_counts[ph] = phone_counts.get(ph, 0) + 1
 
         repeat_phones = {phone for phone, count in phone_counts.items() if count > 1}
-        repeat_count = sum(1 for v in all_visitors if (getattr(v, "phone", None) or getattr(v, "mobile_number", None)) in repeat_phones)
-        first_time_count = total_count - repeat_count
+        repeat_count = sum(v.persons_count for v in all_visitors if v.phone_number in repeat_phones)
+        first_time_count = max(0, total_count - repeat_count)
 
         live_metrics = LiveVisitorMetrics(
             live_visitors=live_count,

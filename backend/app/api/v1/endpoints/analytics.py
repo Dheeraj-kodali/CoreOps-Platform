@@ -79,23 +79,13 @@ async def get_admin_dashboard(
     )
     todays_check_ins = checkins_res.scalar_one()
 
-    # Fallback to total lifetime records if today's date filter is zero
-    total_all_res = await db.execute(
-        select(func.coalesce(func.sum(Visitor.persons_count), 0)).filter(Visitor.is_deleted.is_(False))
-    )
-    total_all_visitors = total_all_res.scalar_one()
+    display_visitors = todays_visitors
+    display_checkins = todays_check_ins
 
-    total_checkins_all = await db.execute(
-        select(func.count(Visitor.id)).filter(Visitor.is_deleted.is_(False))
-    )
-    all_check_ins_count = total_checkins_all.scalar_one()
-
-    display_visitors = todays_visitors if todays_visitors > 0 else total_all_visitors
-    display_checkins = todays_check_ins if todays_check_ins > 0 else all_check_ins_count
-
-    # Total check-outs (sum persons_count for visitors with CHECKED_OUT in notes)
+    # Total check-outs for today (sum persons_count for visitors with CHECKED_OUT in notes)
     checkouts_res = await db.execute(
         select(func.coalesce(func.sum(Visitor.persons_count), 0)).filter(
+            Visitor.visitor_date == today,
             Visitor.is_deleted.is_(False),
             or_(
                 Visitor.notes.like("%CHECKED_OUT%"),
@@ -106,7 +96,7 @@ async def get_admin_dashboard(
     )
     todays_check_outs = checkouts_res.scalar_one()
 
-    # Real calculation of visitors inside premise
+    # Real calculation of visitors inside premise today
     visitors_inside = max(0, display_visitors - todays_check_outs)
 
     # Pending sync queue items

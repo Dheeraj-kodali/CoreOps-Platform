@@ -49,9 +49,7 @@ export default function DashboardPage() {
 
   const [recentVisitors, setRecentVisitors] = useState<Visitor[]>([]);
   const [purposeBreakdown, setPurposeBreakdown] = useState<PurposeBreakdownItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastRefreshed, setLastRefreshed] = useState<string>("");
-
+  const [wsConnected, setWsConnected] = useState(false);
   const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const loadLiveDashboardData = useCallback(async () => {
@@ -92,9 +90,50 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      loadLiveDashboardData();
-    }
+    if (authLoading || !isAuthenticated) return;
+
+    loadLiveDashboardData();
+
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
+    let wsUrl = apiBase.replace(/^http/, "ws") + "/ws";
+
+    let socket: WebSocket | null = null;
+    let reconnectTimeout: any = null;
+
+    const connectWs = () => {
+      try {
+        socket = new WebSocket(wsUrl);
+
+        socket.onopen = () => {
+          setWsConnected(true);
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.event && data.event !== "CONNECTED") {
+              loadLiveDashboardData();
+            }
+          } catch (_) {}
+        };
+
+        socket.onclose = () => {
+          setWsConnected(false);
+          reconnectTimeout = setTimeout(connectWs, 3000);
+        };
+
+        socket.onerror = () => {
+          socket?.close();
+        };
+      } catch (_) {}
+    };
+
+    connectWs();
+
+    return () => {
+      if (socket) socket.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    };
   }, [authLoading, isAuthenticated, loadLiveDashboardData]);
 
   const cards = [
@@ -167,8 +206,8 @@ export default function DashboardPage() {
                 </>
               ) : (
                 <>
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                  <span>System Active • Refreshed {lastRefreshed || "Just Now"}</span>
+                  <span className={`h-2 w-2 rounded-full ${wsConnected ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+                  <span>{wsConnected ? "WebSocket Real-Time Active" : "System Active"} • Refreshed {lastRefreshed || "Just Now"}</span>
                 </>
               )}
             </span>
