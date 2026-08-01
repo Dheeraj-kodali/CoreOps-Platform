@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:temple_visitor_app/core/database/sqlite_database.dart';
 import 'package:temple_visitor_app/core/network/api_client.dart';
@@ -8,13 +9,11 @@ import 'package:temple_visitor_app/models/sync_queue_model.dart';
 class SyncRepository {
   final Dio _dio = ApiClient.createDio();
 
-  /// Get pending count of events in sync_queue
+  /// Get pending count of events in sync_queue or visitors table
   Future<int> getPendingCount() async {
     final queueCount = await SQLiteDatabase.getPendingSyncQueueCount();
-    if (queueCount > 0) return queueCount;
-
     final pendingVisitors = await SQLiteDatabase.getPendingSyncVisitors();
-    return pendingVisitors.length;
+    return queueCount + pendingVisitors.length;
   }
 
   /// Get pending sync queue models
@@ -65,7 +64,7 @@ class SyncRepository {
       }
 
       // 1. Fetch backend default purpose ID
-      String purposeId = 'p-darshan-1';
+      String purposeId = '3ef2daff-d716-4285-ac7c-81e702530b44';
       try {
         final purpRes = await _dio.get('/analytics/purpose-breakdown');
         if (purpRes.statusCode == 200 && purpRes.data != null) {
@@ -76,21 +75,21 @@ class SyncRepository {
         }
       } catch (_) {}
 
-      // 2. Fetch pending visitors from SQLite database
+      // 2. Fetch pending visitors from SQLite database visitors table
       final pendingVisitors = await SQLiteDatabase.getPendingSyncVisitors();
-      AppLogger.info('Found ${pendingVisitors.length} pending visitors to sync to Neon DB');
+      AppLogger.info('Found ${pendingVisitors.length} pending visitors in visitors table to sync to Neon DB');
 
       bool allSuccess = true;
 
       for (final visitorMap in pendingVisitors) {
-        final visitorId = visitorMap['id'] as String;
-        final visitorUuid = (visitorMap['visitor_uuid'] ?? visitorId) as String;
-        final name = visitorMap['name'] as String;
-        final phone = visitorMap['phone_number'] as String;
-        final count = (visitorMap['persons_count'] as int?) ?? 1;
-        final notes = visitorMap['notes'] as String? ?? '';
-        final visitorDate = visitorMap['visitor_date'] as String? ?? DateTime.now().toIso8601String().split('T')[0];
-        final timeIn = visitorMap['time_in'] as String? ?? '10:00:00';
+        final visitorId = visitorMap['id']?.toString() ?? '';
+        final visitorUuid = visitorMap['visitor_uuid']?.toString() ?? visitorId;
+        final name = visitorMap['name']?.toString() ?? '';
+        final phone = visitorMap['phone_number']?.toString() ?? '';
+        final count = int.tryParse(visitorMap['persons_count']?.toString() ?? '1') ?? 1;
+        final notes = visitorMap['notes']?.toString() ?? '';
+        final visitorDate = visitorMap['visitor_date']?.toString() ?? DateTime.now().toIso8601String().split('T')[0];
+        final timeIn = visitorMap['time_in']?.toString() ?? '10:00:00';
 
         // Extract latitude and longitude if present in notes or fields
         double? latitude;
@@ -106,7 +105,7 @@ class SyncRepository {
         }
 
         final payload = {
-          'visitor_uuid': visitorUuid,
+          'visitor_uuid': visitorUuid.isNotEmpty ? visitorUuid : visitorId,
           'name': name,
           'phone_number': phone,
           'gender': 'MALE',
@@ -121,10 +120,14 @@ class SyncRepository {
         };
 
         try {
+          AppLogger.info('Posting visitor $name ($visitorUuid) to Render backend...');
           final res = await _dio.post('/visitors/', data: payload);
           if (res.statusCode == 200 || res.statusCode == 201) {
             await SQLiteDatabase.markVisitorSynced(visitorId);
-            AppLogger.info('Successfully synced visitor $visitorUuid to Render backend');
+            if (visitorUuid.isNotEmpty) {
+              await SQLiteDatabase.markVisitorSynced(visitorUuid);
+            }
+            AppLogger.info('[SYNC SUCCESS] Visitor $name ($visitorUuid) successfully synced to Neon DB');
           } else {
             allSuccess = false;
           }
@@ -134,11 +137,32 @@ class SyncRepository {
         }
       }
 
-      // 3. Mark sync_queue items as SUCCESS
+      // 3. Process items from sync_queue table
       final queueItems = await SQLiteDatabase.getSyncQueueItems(status: 'PENDING');
+      AppLogger.info('Found ${queueItems.length} pending items in sync_queue table');
       for (final item in queueItems) {
         final qId = item['queue_id'] as int;
-        await SQLiteDatabase.updateSyncQueueStatusByQueueId(qId, 'SUCCESS');
+        try {
+          final rawPayload = item['payload'] as String?;
+          if (rawPayload != null && rawPayload.isNotEmpty) {
+            final Map<String, dynamic> payload = jsonDecode(rawPayload);
+            if (!payload.containsKey('purpose_id') || payload['purpose_id'] == null) {
+              payload['purpose_id'] = purposeId;
+            }
+            final res = await _dio.post('/visitors/', data: payload);
+            if (res.statusCode == 200 || res.statusCode == 201) {
+              await SQLiteDatabase.updateSyncQueueStatusByQueueId(qId, 'SUCCESS');
+              final vUuid = payload['visitor_uuid']?.toString();
+              if (vUuid != null) {
+                await SQLiteDatabase.markVisitorSynced(vUuid);
+              }
+              AppLogger.info('[SYNC SUCCESS] sync_queue event $qId successfully synced to Neon DB');
+            }
+          }
+        } catch (e) {
+          AppLogger.error('Failed to post sync_queue event $qId: $e');
+          allSuccess = false;
+        }
       }
 
       return allSuccess;
