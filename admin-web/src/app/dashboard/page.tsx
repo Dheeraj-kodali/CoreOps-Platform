@@ -232,8 +232,8 @@ export default function DashboardPage() {
 
           <div className="overflow-x-auto">
             {recentVisitors.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-xs">
-                No visitor records found for today.
+              <div className="p-8 text-center text-slate-400 text-xs font-medium">
+                No visitors registered today.
               </div>
             ) : (
               <table className="w-full text-left text-xs">

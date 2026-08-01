@@ -84,58 +84,8 @@ export default function VisitorsManagementPage() {
         setVisitors(response.data.items);
       }
     } catch (err) {
-      console.warn("Falling back to simulated/cached visitor list:", err);
-      // Mock fallback items if database is empty/fresh
-      setVisitors([
-        {
-          id: "v-101",
-          visitor_uuid: "uuid-101",
-          name: "Ramesh Kumar",
-          phone_number: "+91 98765 43210",
-          gender: "MALE",
-          age: 42,
-          persons_count: 4,
-          village_name_custom: "Tirupati",
-          purpose: { name_en: "General Darshan" },
-          visitor_date: new Date().toISOString().split("T")[0],
-          visitor_time: "09:30 AM",
-          status: "INSIDE",
-          sync_status: "SYNCED",
-          notes: "Family visit for special morning darshan.",
-        },
-        {
-          id: "v-102",
-          visitor_uuid: "uuid-102",
-          name: "Suresh Varma",
-          phone_number: "+91 91234 56789",
-          gender: "MALE",
-          age: 38,
-          persons_count: 2,
-          village_name_custom: "Chittoor",
-          purpose: { name_en: "Special Seva" },
-          visitor_date: new Date().toISOString().split("T")[0],
-          visitor_time: "10:15 AM",
-          status: "CHECKED_OUT",
-          sync_status: "SYNCED",
-          notes: "Regular monthly temple visit.",
-        },
-        {
-          id: "v-103",
-          visitor_uuid: "uuid-103",
-          name: "Anitha Rao",
-          phone_number: "+91 99887 76655",
-          gender: "FEMALE",
-          age: 35,
-          persons_count: 6,
-          village_name_custom: "Madanapalle",
-          purpose: { name_en: "Annadhanam" },
-          visitor_date: new Date().toISOString().split("T")[0],
-          visitor_time: "11:00 AM",
-          status: "INSIDE",
-          sync_status: "PENDING",
-          notes: "Donation inquiry and group meal.",
-        },
-      ]);
+      console.warn("Could not retrieve live visitors:", err);
+      setVisitors([]);
     } finally {
       setLoading(false);
     }
@@ -449,8 +399,8 @@ export default function VisitorsManagementPage() {
                 </tr>
               ) : paginatedVisitors.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
-                    No visitor records found matching current query.
+                  <td colSpan={10} className="py-12 text-center text-slate-400 font-medium">
+                    No visitors registered today.
                   </td>
                 </tr>
               ) : (
