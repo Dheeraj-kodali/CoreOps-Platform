@@ -25,6 +25,27 @@ class VisitorService(BaseService[Visitor]):
         if existing_uuid:
             return existing_uuid
 
+        # Check if an active visitor with the same phone number exists today
+        from fastapi import HTTPException, status
+        from sqlalchemy import select
+        from app.models.visitor import Visitor as VisitorModel
+
+        p_res = await self.db.execute(
+            select(VisitorModel).filter(
+                VisitorModel.phone_number == payload.phone_number,
+                VisitorModel.visitor_date == payload.visitor_date,
+                VisitorModel.is_deleted.is_(False),
+            )
+        )
+        existing_visitors = p_res.scalars().all()
+        for ev in existing_visitors:
+            is_checked_out = ev.notes and ("CHECKED_OUT" in ev.notes or "Visitor Left" in ev.notes)
+            if not is_checked_out:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Visitor already inside temple."
+                )
+
         data = payload.model_dump()
         data["volunteer_id"] = current_user.id
         data["sync_status"] = "SYNCED"

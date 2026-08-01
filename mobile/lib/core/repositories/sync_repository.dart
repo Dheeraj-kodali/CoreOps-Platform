@@ -131,6 +131,17 @@ class SyncRepository {
           } else {
             allSuccess = false;
           }
+        } on DioException catch (e) {
+          if (e.response?.statusCode == 409) {
+            AppLogger.warning('Visitor $name ($visitorUuid) already exists on backend (409 Conflict). Marking synced.');
+            await SQLiteDatabase.markVisitorSynced(visitorId);
+            if (visitorUuid.isNotEmpty) {
+              await SQLiteDatabase.markVisitorSynced(visitorUuid);
+            }
+          } else {
+            AppLogger.error('Failed to post visitor $visitorUuid to backend: $e');
+            allSuccess = false;
+          }
         } catch (e) {
           AppLogger.error('Failed to post visitor $visitorUuid to backend: $e');
           allSuccess = false;

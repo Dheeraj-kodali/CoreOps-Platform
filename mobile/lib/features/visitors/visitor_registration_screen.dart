@@ -254,8 +254,15 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
       widget.onVisitorAdded();
     } catch (e) {
       if (!mounted) return;
+      final errorStr = e.toString();
+      final isAlreadyInside = errorStr.contains('Visitor already inside temple');
+      final msg = isAlreadyInside ? 'Visitor already inside temple.' : 'Error registering visitor: $e';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error registering visitor: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: isAlreadyInside ? Colors.orange[900] : Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);

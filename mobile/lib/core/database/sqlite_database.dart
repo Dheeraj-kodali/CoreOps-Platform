@@ -765,6 +765,14 @@ class SQLiteDatabase {
     final visitId = _uuid.v4();
     final eventId = _uuid.v4();
     final clientTs = now.millisecondsSinceEpoch;
+    final activeVisitorQuery = await db.query(
+      'visitors',
+      where: "phone_number = ? AND status = 'CHECKED_IN' AND is_deleted = 0",
+      whereArgs: [cleanPhone],
+    );
+    if (activeVisitorQuery.isNotEmpty) {
+      throw Exception('Visitor already inside temple.');
+    }
 
     await db.transaction((txn) async {
       final existingPerson = await txn.query('persons', where: 'phone = ?', whereArgs: [cleanPhone]);
