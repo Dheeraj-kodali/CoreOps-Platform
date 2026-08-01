@@ -1,0 +1,358 @@
+{
+  "sql_overall": {
+    "visitor_records": 6,
+    "total_people": 11,
+    "people_inside": 9,
+    "people_checked_out": 2
+  },
+  "sql_todays": {
+    "visitor_records_today": 6,
+    "total_people_today": 11,
+    "people_inside_today": 9,
+    "people_checked_out_today": 2
+  },
+  "sql_todays_visitors": [
+    {
+      "id": "87d6faf2-b4e2-47c0-a32b-043de02150c9",
+      "visitor_uuid": "763b5f05-f52a-417a-b61a-28147e60ff23",
+      "name": "Production Release Smoke Test 12:40:45",
+      "persons_count": 2,
+      "status": "CHECKED_OUT",
+      "visitor_date": "2026-08-01",
+      "visitor_time": "12:40:45",
+      "created_at": "2026-08-01 12:40:46.161824+00:00"
+    },
+    {
+      "id": "ba925b36-645d-40fb-b7f5-c0b25a078e81",
+      "visitor_uuid": "ab509934-6720-4d9b-bb0b-93bab08d117e",
+      "name": "Realtime APK Test 2026-08-01 12:30:45",
+      "persons_count": 2,
+      "status": "INSIDE",
+      "visitor_date": "2026-08-01",
+      "visitor_time": "12:30:45",
+      "created_at": "2026-08-01 12:30:46.267712+00:00"
+    },
+    {
+      "id": "86e591fd-9a2f-44fc-b17f-03a9bc570c41",
+      "visitor_uuid": "22fb4ab8-9569-430f-938a-352ef82286ae",
+      "name": "Realtime Verification 2026-08-01 12:13:50",
+      "persons_count": 2,
+      "status": "INSIDE",
+      "visitor_date": "2026-08-01",
+      "visitor_time": "12:13:50",
+      "created_at": "2026-08-01 12:13:50.878182+00:00"
+    },
+    {
+      "id": "39baae62-0a73-4f2f-8231-92224258b102",
+      "visitor_uuid": "77f09485-741c-44e6-ac3b-a8b2f0ead166",
+      "name": "Devotee Ananya Sharma",
+      "persons_count": 3,
+      "status": "INSIDE",
+      "visitor_date": "2026-08-01",
+      "visitor_time": "12:05:51",
+      "created_at": "2026-08-01 12:05:54.784125+00:00"
+    },
+    {
+      "id": "09245c64-eafb-4183-972e-c3c2e46b5727",
+      "visitor_uuid": "a8043664-7ba3-4d58-9e17-6d71bcd59cdc",
+      "name": "ritwik",
+      "persons_count": 1,
+      "status": "INSIDE",
+      "visitor_date": "2026-08-01",
+      "visitor_time": "12:51:00",
+      "created_at": "2026-08-01 07:21:37.508682+00:00"
+    },
+    {
+      "id": "0494ab48-7126-4f66-bc1c-3dcab1e11364",
+      "visitor_uuid": "0c6ac8f3-4659-4885-84b1-c200bf822e89",
+      "name": "dheeraj",
+      "persons_count": 1,
+      "status": "INSIDE",
+      "visitor_date": "2026-08-01",
+      "visitor_time": "09:37:00",
+      "created_at": "2026-08-01 04:07:23.722571+00:00"
+    }
+  ],
+  "api_dashboard": {
+    "todays_visitors": 11,
+    "visitors_inside": 9,
+    "todays_check_ins": 6,
+    "todays_check_outs": 2,
+    "pending_sync": 0,
+    "broadcast_status": "Active",
+    "recent_visitors": [
+      {
+        "id": "87d6faf2-b4e2-47c0-a32b-043de02150c9",
+        "uuid": "763b5f05-f52a-417a-b61a-28147e60ff23",
+        "name": "Production Release Smoke Test 12:40:45",
+        "phone": "+919876599888",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "12:40:45",
+        "status": "CHECKED_OUT"
+      },
+      {
+        "id": "ba925b36-645d-40fb-b7f5-c0b25a078e81",
+        "uuid": "ab509934-6720-4d9b-bb0b-93bab08d117e",
+        "name": "Realtime APK Test 2026-08-01 12:30:45",
+        "phone": "+919988776655",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "12:30:45",
+        "status": "INSIDE"
+      },
+      {
+        "id": "86e591fd-9a2f-44fc-b17f-03a9bc570c41",
+        "uuid": "22fb4ab8-9569-430f-938a-352ef82286ae",
+        "name": "Realtime Verification 2026-08-01 12:13:50",
+        "phone": "+919876543999",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "12:13:50",
+        "status": "INSIDE"
+      },
+      {
+        "id": "39baae62-0a73-4f2f-8231-92224258b102",
+        "uuid": "77f09485-741c-44e6-ac3b-a8b2f0ead166",
+        "name": "Devotee Ananya Sharma",
+        "phone": "+919876500123",
+        "persons_count": 3,
+        "date": "2026-08-01",
+        "time": "12:05:51",
+        "status": "INSIDE"
+      },
+      {
+        "id": "09245c64-eafb-4183-972e-c3c2e46b5727",
+        "uuid": "a8043664-7ba3-4d58-9e17-6d71bcd59cdc",
+        "name": "ritwik",
+        "phone": "7995664049",
+        "persons_count": 1,
+        "date": "2026-08-01",
+        "time": "12:51:00",
+        "status": "INSIDE"
+      },
+      {
+        "id": "0494ab48-7126-4f66-bc1c-3dcab1e11364",
+        "uuid": "0c6ac8f3-4659-4885-84b1-c200bf822e89",
+        "name": "dheeraj",
+        "phone": "6301123013",
+        "persons_count": 1,
+        "date": "2026-08-01",
+        "time": "09:37:00",
+        "status": "INSIDE"
+      }
+    ],
+    "purpose_breakdown": [
+      {
+        "name": "General Darshan",
+        "count": 6,
+        "percentage": 100.0
+      }
+    ],
+    "system_health": {
+      "api_status": "ONLINE",
+      "db_status": "CONNECTED",
+      "offline_sync_engine": "ACTIVE"
+    }
+  },
+  "api_visitors": {
+    "items": [
+      {
+        "name": "Production Release Smoke Test 12:40:45",
+        "phone_number": "+919876599888",
+        "gender": "MALE",
+        "age": 30,
+        "persons_count": 2,
+        "temple_id": null,
+        "village_id": null,
+        "village_name_custom": null,
+        "purpose_id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+        "temple_service": null,
+        "visitor_date": "2026-08-01",
+        "visitor_time": "12:40:45",
+        "notes": "APK v1.7.0+10 Smoke Test Entry [CHECKED_OUT] Out: 12:40:45 (5 min)",
+        "photo_url": null,
+        "id_proof_url": null,
+        "latitude": null,
+        "longitude": null,
+        "id": "87d6faf2-b4e2-47c0-a32b-043de02150c9",
+        "visitor_uuid": "763b5f05-f52a-417a-b61a-28147e60ff23",
+        "volunteer_id": "72696622-1f96-47f0-8c88-3562ca619176",
+        "sync_status": "SYNCED",
+        "created_at": "2026-08-01T12:40:46.161824Z",
+        "updated_at": "2026-08-01T12:40:47.615504Z",
+        "purpose": {
+          "id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+          "name_en": "General Darshan",
+          "name_te": "\u0c38\u0c3e\u0c27\u0c3e\u0c30\u0c23 \u0c26\u0c30\u0c4d\u0c36\u0c28\u0c02",
+          "code": "DARSHAN_GENERAL"
+        },
+        "village": null
+      },
+      {
+        "name": "Realtime APK Test 2026-08-01 12:30:45",
+        "phone_number": "+919988776655",
+        "gender": "MALE",
+        "age": 32,
+        "persons_count": 2,
+        "temple_id": null,
+        "village_id": null,
+        "village_name_custom": null,
+        "purpose_id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+        "temple_service": null,
+        "visitor_date": "2026-08-01",
+        "visitor_time": "12:30:45",
+        "notes": "Simulated Android APK v1.2.0+4 Realtime Registration",
+        "photo_url": null,
+        "id_proof_url": null,
+        "latitude": null,
+        "longitude": null,
+        "id": "ba925b36-645d-40fb-b7f5-c0b25a078e81",
+        "visitor_uuid": "ab509934-6720-4d9b-bb0b-93bab08d117e",
+        "volunteer_id": "72696622-1f96-47f0-8c88-3562ca619176",
+        "sync_status": "SYNCED",
+        "created_at": "2026-08-01T12:30:46.267712Z",
+        "updated_at": "2026-08-01T12:30:46.267718Z",
+        "purpose": {
+          "id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+          "name_en": "General Darshan",
+          "name_te": "\u0c38\u0c3e\u0c27\u0c3e\u0c30\u0c23 \u0c26\u0c30\u0c4d\u0c36\u0c28\u0c02",
+          "code": "DARSHAN_GENERAL"
+        },
+        "village": null
+      },
+      {
+        "name": "Realtime Verification 2026-08-01 12:13:50",
+        "phone_number": "+919876543999",
+        "gender": "MALE",
+        "age": 30,
+        "persons_count": 2,
+        "temple_id": null,
+        "village_id": null,
+        "village_name_custom": null,
+        "purpose_id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+        "temple_service": null,
+        "visitor_date": "2026-08-01",
+        "visitor_time": "12:13:50",
+        "notes": "Live Production Verification Test",
+        "photo_url": null,
+        "id_proof_url": null,
+        "latitude": null,
+        "longitude": null,
+        "id": "86e591fd-9a2f-44fc-b17f-03a9bc570c41",
+        "visitor_uuid": "22fb4ab8-9569-430f-938a-352ef82286ae",
+        "volunteer_id": "72696622-1f96-47f0-8c88-3562ca619176",
+        "sync_status": "SYNCED",
+        "created_at": "2026-08-01T12:13:50.878182Z",
+        "updated_at": "2026-08-01T12:13:50.878187Z",
+        "purpose": {
+          "id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+          "name_en": "General Darshan",
+          "name_te": "\u0c38\u0c3e\u0c27\u0c3e\u0c30\u0c23 \u0c26\u0c30\u0c4d\u0c36\u0c28\u0c02",
+          "code": "DARSHAN_GENERAL"
+        },
+        "village": null
+      },
+      {
+        "name": "Devotee Ananya Sharma",
+        "phone_number": "+919876500123",
+        "gender": "FEMALE",
+        "age": 28,
+        "persons_count": 3,
+        "temple_id": null,
+        "village_id": null,
+        "village_name_custom": null,
+        "purpose_id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+        "temple_service": null,
+        "visitor_date": "2026-08-01",
+        "visitor_time": "12:05:51",
+        "notes": "Special Realtime Evidence Darshan Entry",
+        "photo_url": null,
+        "id_proof_url": null,
+        "latitude": null,
+        "longitude": null,
+        "id": "39baae62-0a73-4f2f-8231-92224258b102",
+        "visitor_uuid": "77f09485-741c-44e6-ac3b-a8b2f0ead166",
+        "volunteer_id": "72696622-1f96-47f0-8c88-3562ca619176",
+        "sync_status": "SYNCED",
+        "created_at": "2026-08-01T12:05:54.784125Z",
+        "updated_at": "2026-08-01T12:05:54.784130Z",
+        "purpose": {
+          "id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+          "name_en": "General Darshan",
+          "name_te": "\u0c38\u0c3e\u0c27\u0c3e\u0c30\u0c23 \u0c26\u0c30\u0c4d\u0c36\u0c28\u0c02",
+          "code": "DARSHAN_GENERAL"
+        },
+        "village": null
+      },
+      {
+        "name": "ritwik",
+        "phone_number": "7995664049",
+        "gender": "MALE",
+        "age": 30,
+        "persons_count": 1,
+        "temple_id": null,
+        "village_id": null,
+        "village_name_custom": null,
+        "purpose_id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+        "temple_service": null,
+        "visitor_date": "2026-08-01",
+        "visitor_time": "12:51:00",
+        "notes": "",
+        "photo_url": null,
+        "id_proof_url": null,
+        "latitude": null,
+        "longitude": null,
+        "id": "09245c64-eafb-4183-972e-c3c2e46b5727",
+        "visitor_uuid": "a8043664-7ba3-4d58-9e17-6d71bcd59cdc",
+        "volunteer_id": "72696622-1f96-47f0-8c88-3562ca619176",
+        "sync_status": "SYNCED",
+        "created_at": "2026-08-01T07:21:37.508682Z",
+        "updated_at": "2026-08-01T07:21:37.508686Z",
+        "purpose": {
+          "id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+          "name_en": "General Darshan",
+          "name_te": "\u0c38\u0c3e\u0c27\u0c3e\u0c30\u0c23 \u0c26\u0c30\u0c4d\u0c36\u0c28\u0c02",
+          "code": "DARSHAN_GENERAL"
+        },
+        "village": null
+      },
+      {
+        "name": "dheeraj",
+        "phone_number": "6301123013",
+        "gender": "MALE",
+        "age": 30,
+        "persons_count": 1,
+        "temple_id": null,
+        "village_id": null,
+        "village_name_custom": null,
+        "purpose_id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+        "temple_service": null,
+        "visitor_date": "2026-08-01",
+        "visitor_time": "09:37:00",
+        "notes": "",
+        "photo_url": null,
+        "id_proof_url": null,
+        "latitude": null,
+        "longitude": null,
+        "id": "0494ab48-7126-4f66-bc1c-3dcab1e11364",
+        "visitor_uuid": "0c6ac8f3-4659-4885-84b1-c200bf822e89",
+        "volunteer_id": "72696622-1f96-47f0-8c88-3562ca619176",
+        "sync_status": "SYNCED",
+        "created_at": "2026-08-01T04:07:23.722571Z",
+        "updated_at": "2026-08-01T04:07:23.722577Z",
+        "purpose": {
+          "id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+          "name_en": "General Darshan",
+          "name_te": "\u0c38\u0c3e\u0c27\u0c3e\u0c30\u0c23 \u0c26\u0c30\u0c4d\u0c36\u0c28\u0c02",
+          "code": "DARSHAN_GENERAL"
+        },
+        "village": null
+      }
+    ],
+    "total": 6,
+    "page": 1,
+    "limit": 20,
+    "pages": 1
+  }
+}

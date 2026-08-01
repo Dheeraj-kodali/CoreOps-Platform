@@ -1,8 +1,19 @@
+import os
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from app.core.websocket import websocket_manager
+from app.core.websocket import websocket_manager, runtime_debug_logs
 
 router = APIRouter()
+
+
+@router.get("/debug-logs")
+async def get_debug_logs():
+    """Return worker PID and captured runtime debug logs for worker identification."""
+    return {
+        "worker_pid": os.getpid(),
+        "active_connections_count": len(websocket_manager.active_connections),
+        "debug_logs": list(runtime_debug_logs)
+    }
 
 
 @router.websocket("/ws")
@@ -24,7 +35,9 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.send_json({
             "event": "CONNECTED",
             "message": "Connected to Temple Management Real-Time Event Hub",
-            "status": "ONLINE"
+            "status": "ONLINE",
+            "worker_pid": os.getpid(),
+            "active_connections_count": len(websocket_manager.active_connections)
         })
 
         while True:

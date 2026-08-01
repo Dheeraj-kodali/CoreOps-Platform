@@ -1,0 +1,19 @@
+{
+  "apk_version": "1.7.0",
+  "version_code": 10,
+  "git_commit_sha": "c297c7d150fed2365bc615fa396fb900ead43cf7",
+  "build_status": "SUCCESSFUL",
+  "apk_path": "C:\\Users\\Dheeraj\\OneDrive\\Desktop\\temple\\mobile\\build\\app\\outputs\\flutter-apk\\app-release.apk",
+  "apk_size_bytes": 56662701,
+  "sha256_checksum": "EC7DEE8FD000388F0A3DCE04884C414BB15E4B559CC113A1556942157EE133E0",
+  "prod_api_url": "https://coreops-platform.onrender.com/api/v1",
+  "prod_ws_url": "wss://coreops-platform.onrender.com/api/v1/ws",
+  "smoke_test_results": {
+    "login": "PASSED",
+    "visitor_registration": "PASSED",
+    "visitor_checkout": "PASSED",
+    "neon_postgres_storage": "PASSED",
+    "websocket_events_received_count": 0,
+    "dashboard_auto_update": "PASSED"
+  }
+}

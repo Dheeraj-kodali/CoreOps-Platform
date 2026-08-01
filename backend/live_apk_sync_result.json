@@ -1,0 +1,36 @@
+{
+  "test_name": "APK to Netlify Dashboard Real-Time Synchronization",
+  "apk_visitor_name": "Realtime APK Test 2026-08-01 12:30:45",
+  "visitor_uuid": "ab509934-6720-4d9b-bb0b-93bab08d117e",
+  "http_post_response_status": 201,
+  "ws_endpoint": "wss://coreops-platform.onrender.com/api/v1/ws",
+  "ws_handshake_status": "HTTP 101 Switching Protocols",
+  "ws_event_received": {
+    "timestamp": "2026-08-01T12:30:47.315906+00:00",
+    "message": {
+      "event": "VISITOR_REGISTERED",
+      "data": {
+        "visitor_id": "ba925b36-645d-40fb-b7f5-c0b25a078e81",
+        "uuid": "ab509934-6720-4d9b-bb0b-93bab08d117e",
+        "name": "Realtime APK Test 2026-08-01 12:30:45",
+        "phone": "+919988776655",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "12:30:45",
+        "timestamp": "2026-08-01T12:30:46.965941+00:00"
+      },
+      "timestamp": "2026-08-01T12:30:46.965941+00:00"
+    }
+  },
+  "dashboard_before": {
+    "todays_visitors": 7,
+    "visitors_inside": 7,
+    "todays_check_ins": 4
+  },
+  "dashboard_after": {
+    "todays_visitors": 9,
+    "visitors_inside": 9,
+    "todays_check_ins": 5
+  },
+  "counts_match": true
+}
