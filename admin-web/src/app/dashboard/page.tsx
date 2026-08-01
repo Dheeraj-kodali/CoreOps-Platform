@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useWebSocket } from "@/context/WebSocketContext";
 
 interface Visitor {
   id: string;
@@ -49,8 +50,11 @@ export default function DashboardPage() {
 
   const [recentVisitors, setRecentVisitors] = useState<Visitor[]>([]);
   const [purposeBreakdown, setPurposeBreakdown] = useState<PurposeBreakdownItem[]>([]);
-  const [wsConnected, setWsConnected] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [lastRefreshed, setLastRefreshed] = useState<string>("");
+
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isConnected: wsConnected, lastEvent } = useWebSocket();
 
   const loadLiveDashboardData = useCallback(async () => {
     setLoading(true);
@@ -90,51 +94,18 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
-
-    loadLiveDashboardData();
-
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1";
-    let wsUrl = apiBase.replace(/^http/, "ws") + "/ws";
-
-    let socket: WebSocket | null = null;
-    let reconnectTimeout: any = null;
-
-    const connectWs = () => {
-      try {
-        socket = new WebSocket(wsUrl);
-
-        socket.onopen = () => {
-          setWsConnected(true);
-        };
-
-        socket.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.event && data.event !== "CONNECTED") {
-              loadLiveDashboardData();
-            }
-          } catch (_) {}
-        };
-
-        socket.onclose = () => {
-          setWsConnected(false);
-          reconnectTimeout = setTimeout(connectWs, 3000);
-        };
-
-        socket.onerror = () => {
-          socket?.close();
-        };
-      } catch (_) {}
-    };
-
-    connectWs();
-
-    return () => {
-      if (socket) socket.close();
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-    };
+    if (!authLoading && isAuthenticated) {
+      loadLiveDashboardData();
+    }
   }, [authLoading, isAuthenticated, loadLiveDashboardData]);
+
+  // Real-time WebSocket event received -> refresh live dashboard data instantly
+  useEffect(() => {
+    if (lastEvent) {
+      console.log("[DashboardPage] Real-time event received from WebSocket:", lastEvent);
+      loadLiveDashboardData();
+    }
+  }, [lastEvent, loadLiveDashboardData]);
 
   const cards = [
     {
