@@ -134,11 +134,21 @@ class VisitorService(BaseService[Visitor]):
         return success
 
     async def checkout_visitor(self, visitor_uuid: str, checkout_time: Optional[str] = None, duration: Optional[str] = None, current_user: Optional[User] = None) -> Visitor:
-        visitor = await self.visitor_repo.get_by_uuid(visitor_uuid)
+        visitor = None
+        try:
+            visitor = await self.visitor_repo.get_by_uuid(visitor_uuid)
+        except Exception:
+            pass
+
         if not visitor:
-            visitor = await self.visitor_repo.get_by_id(visitor_uuid)
+            try:
+                visitor = await self.visitor_repo.get_by_id(visitor_uuid)
+            except Exception:
+                pass
+
         if not visitor or visitor.is_deleted:
-            raise AppException(status_code=404, detail="Visitor record not found", error_code="VISITOR_NOT_FOUND")
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Visitor record not found")
 
         from datetime import datetime
         now_str = checkout_time or datetime.now().strftime("%H:%M:%S")
