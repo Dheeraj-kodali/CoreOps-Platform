@@ -41,6 +41,9 @@ void main() {
       expect(personMap['village'], 'Tirupati');
       expect(personMap['total_visits'], 1);
 
+      // Check out v1 so visitor is no longer active inside temple
+      await SQLiteDatabase.checkOutVisitor(v1.id, '12:00', '1 hr');
+
       // Register Repeat Visit for Same Phone Number
       final v2 = await repository.registerVisitor(
         name: 'Ramesh Kumar',
