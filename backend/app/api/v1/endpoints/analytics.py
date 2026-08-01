@@ -93,9 +93,9 @@ async def get_admin_dashboard(
     display_visitors = todays_visitors if todays_visitors > 0 else total_all_visitors
     display_checkins = todays_check_ins if todays_check_ins > 0 else all_check_ins_count
 
-    # Total check-outs (count visitors with CHECKED_OUT in notes)
+    # Total check-outs (sum persons_count for visitors with CHECKED_OUT in notes)
     checkouts_res = await db.execute(
-        select(func.count(Visitor.id)).filter(
+        select(func.coalesce(func.sum(Visitor.persons_count), 0)).filter(
             Visitor.is_deleted.is_(False),
             or_(
                 Visitor.notes.like("%CHECKED_OUT%"),
