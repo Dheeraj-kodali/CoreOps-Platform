@@ -1,0 +1,23 @@
+{
+  "browser_connected": {
+    "worker_pid": 61,
+    "active_connections": 1,
+    "initial_frame": {
+      "event": "CONNECTED",
+      "message": "Connected to Temple Management Real-Time Event Hub",
+      "status": "ONLINE",
+      "worker_pid": 61,
+      "active_connections_count": 1
+    }
+  },
+  "apk_post": {
+    "worker_pid": "Worker Process #2",
+    "visitor_name": "PID Evidence Test 17:08:30"
+  },
+  "broadcast": {
+    "worker_pid": "Worker Process #2",
+    "active_connections": 0,
+    "clients_sent": 0
+  },
+  "different_worker_pids_confirmed": true
+}

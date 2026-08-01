@@ -86,11 +86,6 @@ class VisitorService(BaseService[Visitor]):
             pass
 
         # Broadcast real-time WebSocket event
-        import os
-        apk_post_log = f"[DEBUG RUNTIME LOG] APK POST | Worker PID: {os.getpid()}"
-        logger.info(apk_post_log)
-        print(apk_post_log, flush=True)
-
         try:
             from app.core.websocket import websocket_manager
             from datetime import datetime, timezone
