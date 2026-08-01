@@ -49,10 +49,7 @@ class VisitorRepository {
     final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     final timeInStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
-    final gpsLocationNote = (latitude != null && longitude != null)
-        ? ' [GPS: ${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}]'
-        : '';
-    final combinedNotes = '${notes ?? ""}$gpsLocationNote'.trim();
+    final combinedNotes = (notes ?? "").trim();
 
     final visitId = await SQLiteDatabase.registerVisit(
       name: name,

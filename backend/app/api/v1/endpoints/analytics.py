@@ -151,7 +151,7 @@ async def get_admin_dashboard(
         "todays_check_ins": display_checkins,
         "todays_check_outs": todays_check_outs,
         "pending_sync": pending_sync,
-        "broadcast_status": "Active (Meta WhatsApp Cloud API)",
+        "broadcast_status": "Active",
         "recent_visitors": [
             {
                 "id": str(v.id),

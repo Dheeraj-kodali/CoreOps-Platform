@@ -57,7 +57,6 @@ export default function DashboardPage() {
   const loadLiveDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      // Primary admin dashboard endpoint returns all metrics, recent visitors & purpose breakdown
       const dashboardRes = await apiClient.get("/analytics/dashboard");
 
       if (dashboardRes?.data) {
@@ -102,21 +101,21 @@ export default function DashboardPage() {
     {
       title: "Today's Visitors",
       value: stats.todaysVisitors,
-      change: "Live Production Record",
+      change: "Total devotees registered today",
       icon: Users,
       color: "from-amber-500/20 to-amber-600/5 text-amber-400 border-amber-500/30",
     },
     {
       title: "Visitors Inside",
       value: stats.visitorsInside,
-      change: "Active in temple premise",
+      change: "Currently in temple premises",
       icon: UserCheck,
       color: "from-emerald-500/20 to-emerald-600/5 text-emerald-400 border-emerald-500/30",
     },
     {
       title: "Today's Check-ins",
       value: stats.checkIns,
-      change: "Recorded entry events",
+      change: "Entry visits recorded",
       icon: TrendingUp,
       color: "from-blue-500/20 to-blue-600/5 text-blue-400 border-blue-500/30",
     },
@@ -130,14 +129,14 @@ export default function DashboardPage() {
     {
       title: "Pending Sync",
       value: stats.pendingSync,
-      change: "Offline engine status",
+      change: "Queue status",
       icon: RefreshCw,
       color: "from-sky-500/20 to-sky-600/5 text-sky-400 border-sky-500/30",
     },
     {
-      title: "Broadcast Status",
-      value: stats.broadcastStatus,
-      change: "Meta Cloud API Connected",
+      title: "Messaging Status",
+      value: "Active",
+      change: "WhatsApp & SMS notifications",
       icon: Radio,
       color: "from-rose-500/20 to-rose-600/5 text-rose-400 border-rose-500/30",
     },
@@ -150,10 +149,10 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-5">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Live Production Dashboard
+            Temple Operations Dashboard
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Real-time analytics connected directly to Render live database.
+            Real-time devotee attendance and darshan analytics.
           </p>
         </div>
 
@@ -164,12 +163,12 @@ export default function DashboardPage() {
               {loading ? (
                 <>
                   <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                  <span>Connecting to Live Backend...</span>
+                  <span>Loading Data...</span>
                 </>
               ) : (
                 <>
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                  <span>Live DB Connected • Refreshed {lastRefreshed || "Just Now"}</span>
+                  <span>System Active • Refreshed {lastRefreshed || "Just Now"}</span>
                 </>
               )}
             </span>
@@ -179,7 +178,7 @@ export default function DashboardPage() {
             onClick={loadLiveDashboardData}
             disabled={loading}
             className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all disabled:opacity-50"
-            title="Refresh Live Data"
+            title="Refresh Data"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </button>
@@ -224,7 +223,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
             <div className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-amber-400" />
-              <h3 className="font-bold text-base text-white">Recent Visitors (Live Table)</h3>
+              <h3 className="font-bold text-base text-white">Recent Visitors</h3>
             </div>
             <span className="text-xs text-amber-400 font-semibold cursor-pointer hover:underline flex items-center gap-1">
               View All <ArrowUpRight className="h-3.5 w-3.5" />
@@ -234,7 +233,7 @@ export default function DashboardPage() {
           <div className="overflow-x-auto">
             {recentVisitors.length === 0 ? (
               <div className="p-8 text-center text-slate-400 text-xs">
-                No recent visitor records returned from live backend.
+                No visitor records found for today.
               </div>
             ) : (
               <table className="w-full text-left text-xs">
@@ -274,9 +273,7 @@ export default function DashboardPage() {
             {purposeBreakdown.length === 0 ? (
               <div className="space-y-4">
                 {[
-                  { name: "General Darshan", count: 84, pct: 60 },
-                  { name: "Special Seva", count: 32, pct: 23 },
-                  { name: "Annadhanam", count: 26, pct: 17 },
+                  { name: "General Darshan", count: 0, pct: 100 },
                 ].map((item, idx) => (
                   <div key={idx} className="space-y-1.5">
                     <div className="flex justify-between text-xs font-semibold text-slate-300">
@@ -317,34 +314,34 @@ export default function DashboardPage() {
           <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
             <span className="flex items-center gap-1.5">
               <BarChart3 className="h-4 w-4 text-emerald-400" />
-              Live Backend Synchronized
+              Real-time Analytics
             </span>
             <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded-full">
-              Render API
+              System Active
             </span>
           </div>
         </div>
 
       </div>
 
-      {/* System Infrastructure Live Monitor */}
+      {/* System Operational Status Monitor */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl backdrop-blur-sm">
         <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-emerald-400" />
-            <h3 className="font-bold text-base text-white">Production System Infrastructure Health</h3>
+            <h3 className="font-bold text-base text-white">System Operational Status</h3>
           </div>
           <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            ALL SYSTEMS NORMAL
+            OPERATIONAL
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
           <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
             <div>
-              <p className="text-slate-400 font-semibold mb-0.5">Render Live FastAPI Server</p>
-              <p className="text-[11px] text-slate-500 font-mono">https://coreops-platform.onrender.com</p>
+              <p className="text-slate-400 font-semibold mb-0.5">Central Server</p>
+              <p className="text-[11px] text-slate-500 font-mono">Sri Kalki Seva Cloud</p>
             </div>
             <span className="px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 text-emerald-400 font-semibold text-[11px]">
               ONLINE
@@ -353,8 +350,8 @@ export default function DashboardPage() {
 
           <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
             <div>
-              <p className="text-slate-400 font-semibold mb-0.5">PostgreSQL Database Engine</p>
-              <p className="text-[11px] text-slate-500 font-mono">Async SQLAlchemy Pool</p>
+              <p className="text-slate-400 font-semibold mb-0.5">Database Storage</p>
+              <p className="text-[11px] text-slate-500 font-mono">Secure Cloud DB</p>
             </div>
             <span className="px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 text-emerald-400 font-semibold text-[11px]">
               CONNECTED
@@ -363,11 +360,11 @@ export default function DashboardPage() {
 
           <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
             <div>
-              <p className="text-slate-400 font-semibold mb-0.5">Flutter & Offline Sync Engine</p>
-              <p className="text-[11px] text-slate-500 font-mono">Transactional Outbox Queue</p>
+              <p className="text-slate-400 font-semibold mb-0.5">Mobile Synchronization</p>
+              <p className="text-[11px] text-slate-500 font-mono">Real-time Outbox</p>
             </div>
-            <span className="px-2.5 py-1 rounded-full bg-amber-950/80 border border-amber-800/60 text-amber-400 font-semibold text-[11px]">
-              100% READY
+            <span className="px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 text-emerald-400 font-semibold text-[11px]">
+              ACTIVE
             </span>
           </div>
         </div>
