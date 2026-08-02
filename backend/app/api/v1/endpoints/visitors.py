@@ -52,7 +52,8 @@ async def list_visitors(
             page=page,
             limit=limit,
         )
-        return VisitorListResponse(items=items, total=total, page=page, limit=limit, pages=pages)
+        dtos = [VisitorResponse.model_validate(item) for item in items]
+        return VisitorListResponse(items=dtos, total=total, page=page, limit=limit, pages=pages)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"List visitors error: {str(e)}")
 

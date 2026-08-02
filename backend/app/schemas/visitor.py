@@ -1,6 +1,6 @@
 from datetime import date, time, datetime
 from typing import Optional, List, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
 class PurposeResponse(BaseModel):
@@ -64,8 +64,6 @@ class VisitorUpdate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
-
-from pydantic import BaseModel, Field, ConfigDict, model_validator, computed_field
 
 class VisitorResponse(VisitorBase):
     id: str
