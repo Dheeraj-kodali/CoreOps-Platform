@@ -13,7 +13,7 @@
     "visitor_registration": "PASSED",
     "visitor_checkout": "PASSED",
     "neon_postgres_storage": "PASSED",
-    "websocket_events_received_count": 0,
+    "websocket_events_received_count": 2,
     "dashboard_auto_update": "PASSED"
   }
 }

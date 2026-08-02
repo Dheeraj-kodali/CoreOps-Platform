@@ -44,7 +44,11 @@ interface VisitorRecord {
   date?: string;
   visitor_time?: string;
   time?: string;
-  status?: string; // CHECKED_IN, CHECKED_OUT, INSIDE
+  status?: string; // CHECKED_IN, CHECKED_OUT, INSIDE, AUTO_CLOSED
+  is_auto_closed?: boolean;
+  check_in_time?: string;
+  check_out_time?: string;
+  duration?: string;
   sync_status?: string; // SYNCED, PENDING, FAILED
   notes?: string;
   created_at?: string;
@@ -465,10 +469,14 @@ export default function VisitorsManagementPage() {
 
                       {/* Status Badge */}
                       <td className="py-3 px-3">
-                        {status === "INSIDE" || status === "CHECKED_IN" ? (
+                        {status === "INSIDE" ? (
                           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-950/70 border border-emerald-800/50 px-2.5 py-0.5 rounded-full">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                             Inside
+                          </span>
+                        ) : status === "AUTO_CLOSED" || v.is_auto_closed ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 bg-amber-950/70 border border-amber-800/50 px-2.5 py-0.5 rounded-full">
+                            Auto Closed
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-300 bg-slate-800 border border-slate-700 px-2.5 py-0.5 rounded-full">

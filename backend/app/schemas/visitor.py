@@ -70,6 +70,11 @@ class VisitorResponse(VisitorBase):
     visitor_uuid: str
     volunteer_id: str
     sync_status: str
+    status: Optional[str] = "INSIDE"
+    is_auto_closed: Optional[bool] = False
+    check_in_time: Optional[str] = None
+    check_out_time: Optional[str] = None
+    duration: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     purpose: Optional[PurposeResponse] = None

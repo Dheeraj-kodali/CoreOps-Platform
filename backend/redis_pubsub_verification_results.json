@@ -1,0 +1,224 @@
+{
+  "test_name": "Production Redis PubSub Multi-Worker Verification",
+  "commit_sha": "redis_pubsub_commit",
+  "prod_api_url": "https://coreops-platform.onrender.com/api/v1",
+  "prod_ws_url": "wss://coreops-platform.onrender.com/api/v1/ws",
+  "visitor_registered": "Redis Realtime Test 2026-08-02 02:26:25",
+  "http_post_status": 201,
+  "ws_event_received_by_browser": null,
+  "dashboard_before": {
+    "todays_visitors": 0,
+    "visitors_inside": 0,
+    "todays_check_ins": 0,
+    "todays_check_outs": 0,
+    "pending_sync": 0,
+    "broadcast_status": "Active",
+    "recent_visitors": [
+      {
+        "id": "3d699405-b990-4c1d-b6c1-10013a88e28a",
+        "uuid": "0416635c-5460-4be3-ad8e-3ab77cead2a3",
+        "name": "PID Evidence Test 17:08:30",
+        "phone": "+919876511222",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "17:08:30",
+        "status": "INSIDE"
+      },
+      {
+        "id": "c53e01b6-9745-4df6-ac10-2913185db030",
+        "uuid": "9a02a67e-9a44-47f7-be2e-854e9264b055",
+        "name": "Realtime Proof 13:45:22",
+        "phone": "+919876500999",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "13:45:22",
+        "status": "INSIDE"
+      },
+      {
+        "id": "87d6faf2-b4e2-47c0-a32b-043de02150c9",
+        "uuid": "763b5f05-f52a-417a-b61a-28147e60ff23",
+        "name": "Production Release Smoke Test 12:40:45",
+        "phone": "+919876599888",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "12:40:45",
+        "status": "CHECKED_OUT"
+      },
+      {
+        "id": "ba925b36-645d-40fb-b7f5-c0b25a078e81",
+        "uuid": "ab509934-6720-4d9b-bb0b-93bab08d117e",
+        "name": "Realtime APK Test 2026-08-01 12:30:45",
+        "phone": "+919988776655",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "12:30:45",
+        "status": "INSIDE"
+      },
+      {
+        "id": "86e591fd-9a2f-44fc-b17f-03a9bc570c41",
+        "uuid": "22fb4ab8-9569-430f-938a-352ef82286ae",
+        "name": "Realtime Verification 2026-08-01 12:13:50",
+        "phone": "+919876543999",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "12:13:50",
+        "status": "INSIDE"
+      },
+      {
+        "id": "39baae62-0a73-4f2f-8231-92224258b102",
+        "uuid": "77f09485-741c-44e6-ac3b-a8b2f0ead166",
+        "name": "Devotee Ananya Sharma",
+        "phone": "+919876500123",
+        "persons_count": 3,
+        "date": "2026-08-01",
+        "time": "12:05:51",
+        "status": "INSIDE"
+      },
+      {
+        "id": "09245c64-eafb-4183-972e-c3c2e46b5727",
+        "uuid": "a8043664-7ba3-4d58-9e17-6d71bcd59cdc",
+        "name": "ritwik",
+        "phone": "7995664049",
+        "persons_count": 1,
+        "date": "2026-08-01",
+        "time": "12:51:00",
+        "status": "INSIDE"
+      },
+      {
+        "id": "0494ab48-7126-4f66-bc1c-3dcab1e11364",
+        "uuid": "0c6ac8f3-4659-4885-84b1-c200bf822e89",
+        "name": "dheeraj",
+        "phone": "6301123013",
+        "persons_count": 1,
+        "date": "2026-08-01",
+        "time": "09:37:00",
+        "status": "INSIDE"
+      }
+    ],
+    "purpose_breakdown": [
+      {
+        "name": "General Darshan",
+        "count": 8,
+        "percentage": 100.0
+      }
+    ],
+    "system_health": {
+      "api_status": "ONLINE",
+      "db_status": "CONNECTED",
+      "offline_sync_engine": "ACTIVE"
+    }
+  },
+  "dashboard_after": {
+    "todays_visitors": 3,
+    "visitors_inside": 3,
+    "todays_check_ins": 1,
+    "todays_check_outs": 0,
+    "pending_sync": 0,
+    "broadcast_status": "Active",
+    "recent_visitors": [
+      {
+        "id": "8da0029d-2416-4a95-8414-9bdc2de81df3",
+        "uuid": "49856ba0-39fd-46db-b155-2da0e8d2c412",
+        "name": "Redis Realtime Test 2026-08-02 02:26:25",
+        "phone": "+919911223344",
+        "persons_count": 3,
+        "date": "2026-08-02",
+        "time": "02:26:25",
+        "status": "INSIDE"
+      },
+      {
+        "id": "3d699405-b990-4c1d-b6c1-10013a88e28a",
+        "uuid": "0416635c-5460-4be3-ad8e-3ab77cead2a3",
+        "name": "PID Evidence Test 17:08:30",
+        "phone": "+919876511222",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "17:08:30",
+        "status": "INSIDE"
+      },
+      {
+        "id": "c53e01b6-9745-4df6-ac10-2913185db030",
+        "uuid": "9a02a67e-9a44-47f7-be2e-854e9264b055",
+        "name": "Realtime Proof 13:45:22",
+        "phone": "+919876500999",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "13:45:22",
+        "status": "INSIDE"
+      },
+      {
+        "id": "87d6faf2-b4e2-47c0-a32b-043de02150c9",
+        "uuid": "763b5f05-f52a-417a-b61a-28147e60ff23",
+        "name": "Production Release Smoke Test 12:40:45",
+        "phone": "+919876599888",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "12:40:45",
+        "status": "CHECKED_OUT"
+      },
+      {
+        "id": "ba925b36-645d-40fb-b7f5-c0b25a078e81",
+        "uuid": "ab509934-6720-4d9b-bb0b-93bab08d117e",
+        "name": "Realtime APK Test 2026-08-01 12:30:45",
+        "phone": "+919988776655",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "12:30:45",
+        "status": "INSIDE"
+      },
+      {
+        "id": "86e591fd-9a2f-44fc-b17f-03a9bc570c41",
+        "uuid": "22fb4ab8-9569-430f-938a-352ef82286ae",
+        "name": "Realtime Verification 2026-08-01 12:13:50",
+        "phone": "+919876543999",
+        "persons_count": 2,
+        "date": "2026-08-01",
+        "time": "12:13:50",
+        "status": "INSIDE"
+      },
+      {
+        "id": "39baae62-0a73-4f2f-8231-92224258b102",
+        "uuid": "77f09485-741c-44e6-ac3b-a8b2f0ead166",
+        "name": "Devotee Ananya Sharma",
+        "phone": "+919876500123",
+        "persons_count": 3,
+        "date": "2026-08-01",
+        "time": "12:05:51",
+        "status": "INSIDE"
+      },
+      {
+        "id": "09245c64-eafb-4183-972e-c3c2e46b5727",
+        "uuid": "a8043664-7ba3-4d58-9e17-6d71bcd59cdc",
+        "name": "ritwik",
+        "phone": "7995664049",
+        "persons_count": 1,
+        "date": "2026-08-01",
+        "time": "12:51:00",
+        "status": "INSIDE"
+      },
+      {
+        "id": "0494ab48-7126-4f66-bc1c-3dcab1e11364",
+        "uuid": "0c6ac8f3-4659-4885-84b1-c200bf822e89",
+        "name": "dheeraj",
+        "phone": "6301123013",
+        "persons_count": 1,
+        "date": "2026-08-01",
+        "time": "09:37:00",
+        "status": "INSIDE"
+      }
+    ],
+    "purpose_breakdown": [
+      {
+        "name": "General Darshan",
+        "count": 9,
+        "percentage": 100.0
+      }
+    ],
+    "system_health": {
+      "api_status": "ONLINE",
+      "db_status": "CONNECTED",
+      "offline_sync_engine": "ACTIVE"
+    }
+  },
+  "sync_verified": false
+}

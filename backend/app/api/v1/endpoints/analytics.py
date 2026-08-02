@@ -135,6 +135,26 @@ async def get_admin_dashboard(
             {"name": "General Darshan", "count": display_checkins, "percentage": 100.0}
         ]
 
+    from app.services.visitor_lifecycle import eval_visitor_lifecycle
+
+    recent_visitor_dtos = []
+    for v in recent_visitors_list:
+        info = eval_visitor_lifecycle(v, current_date=today)
+        recent_visitor_dtos.append({
+            "id": str(v.id),
+            "uuid": v.visitor_uuid,
+            "name": v.name,
+            "phone": v.phone_number,
+            "persons_count": v.persons_count,
+            "date": str(v.visitor_date),
+            "time": str(v.visitor_time),
+            "status": info["status"],
+            "is_auto_closed": info["is_auto_closed"],
+            "check_in_time": info["check_in_time"],
+            "check_out_time": info["check_out_time"],
+            "duration": info["duration"],
+        })
+
     return {
         "todays_visitors": display_visitors,
         "visitors_inside": visitors_inside,
@@ -142,19 +162,7 @@ async def get_admin_dashboard(
         "todays_check_outs": todays_check_outs,
         "pending_sync": pending_sync,
         "broadcast_status": "Active",
-        "recent_visitors": [
-            {
-                "id": str(v.id),
-                "uuid": v.visitor_uuid,
-                "name": v.name,
-                "phone": v.phone_number,
-                "persons_count": v.persons_count,
-                "date": str(v.visitor_date),
-                "time": str(v.visitor_time),
-                "status": "CHECKED_OUT" if (v.notes and ("CHECKED_OUT" in v.notes or "Visitor Left" in v.notes)) else "INSIDE",
-            }
-            for v in recent_visitors_list
-        ],
+        "recent_visitors": recent_visitor_dtos,
         "purpose_breakdown": purpose_breakdown,
         "system_health": {
             "api_status": "ONLINE",

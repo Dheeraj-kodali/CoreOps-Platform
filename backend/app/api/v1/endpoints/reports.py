@@ -177,24 +177,28 @@ async def export_reports(
         limit=10000,
     )
 
+    from app.services.visitor_lifecycle import eval_visitor_lifecycle
+
     if export_format == "csv":
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["ID", "UUID", "Name", "Phone", "Gender", "Age", "Persons", "Purpose", "Date", "Time", "Volunteer"])
+        writer.writerow(["ID", "UUID", "Name", "Phone", "Persons", "Purpose", "Visit Date", "Check-in", "Check-out", "Duration", "Current Status", "Auto Closed"])
 
         for v in visitors:
+            info = eval_visitor_lifecycle(v)
             writer.writerow([
                 v.id,
                 v.visitor_uuid,
                 v.name,
                 v.phone_number,
-                v.gender,
-                v.age,
                 v.persons_count,
                 v.purpose.name_en if v.purpose else "",
                 str(v.visitor_date),
-                str(v.visitor_time),
-                v.volunteer_id,
+                info["check_in_time"],
+                info["check_out_time"],
+                info["duration"],
+                info["status"],
+                "Yes" if info["is_auto_closed"] else "No",
             ])
 
         output.seek(0)
@@ -210,20 +214,22 @@ async def export_reports(
         ws = wb.active
         ws.title = "Visitors Report"
 
-        ws.append(["ID", "UUID", "Name", "Phone", "Gender", "Age", "Persons", "Purpose", "Date", "Time", "Volunteer"])
+        ws.append(["ID", "UUID", "Name", "Phone", "Persons", "Purpose", "Visit Date", "Check-in", "Check-out", "Duration", "Current Status", "Auto Closed"])
         for v in visitors:
+            info = eval_visitor_lifecycle(v)
             ws.append([
                 v.id,
                 v.visitor_uuid,
                 v.name,
                 v.phone_number,
-                v.gender,
-                v.age,
                 v.persons_count,
                 v.purpose.name_en if v.purpose else "",
                 str(v.visitor_date),
-                str(v.visitor_time),
-                v.volunteer_id,
+                info["check_in_time"],
+                info["check_out_time"],
+                info["duration"],
+                info["status"],
+                "Yes" if info["is_auto_closed"] else "No",
             ])
 
         excel_stream = io.BytesIO()
@@ -243,27 +249,30 @@ async def export_reports(
         pdf_stream = io.BytesIO()
         c = canvas.Canvas(pdf_stream, pagesize=letter)
         c.setFont("Helvetica-Bold", 16)
-        c.drawString(50, 750, "Sri Kalki Seva Alayam - Visitor Management System")
+        c.drawString(50, 750, "Sri Kalki Seva Alayam - Visitor Session Report")
         c.setFont("Helvetica", 12)
         c.drawString(50, 730, f"Generated Report - {date.today()}")
         c.line(50, 720, 550, 720)
 
         y = 690
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(50, y, "Name")
-        c.drawString(200, y, "Phone")
-        c.drawString(320, y, "Gender/Age")
-        c.drawString(420, y, "Purpose")
-        c.drawString(500, y, "Date")
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(40, y, "Name")
+        c.drawString(160, y, "Phone")
+        c.drawString(250, y, "Visit Date")
+        c.drawString(330, y, "Check-in")
+        c.drawString(400, y, "Status")
+        c.drawString(480, y, "Auto Closed")
         y -= 20
-        c.setFont("Helvetica", 9)
+        c.setFont("Helvetica", 8)
 
         for v in visitors[:30]:
-            c.drawString(50, y, v.name[:22])
-            c.drawString(200, y, v.phone_number)
-            c.drawString(320, y, f"{v.gender}/{v.age}")
-            c.drawString(420, y, (v.purpose.name_en if v.purpose else "")[:12])
-            c.drawString(500, y, str(v.visitor_date))
+            info = eval_visitor_lifecycle(v)
+            c.drawString(40, y, v.name[:18])
+            c.drawString(160, y, v.phone_number)
+            c.drawString(250, y, str(v.visitor_date))
+            c.drawString(330, y, info["check_in_time"][:10])
+            c.drawString(400, y, info["status"])
+            c.drawString(480, y, "Yes" if info["is_auto_closed"] else "No")
             y -= 18
 
         c.showPage()
