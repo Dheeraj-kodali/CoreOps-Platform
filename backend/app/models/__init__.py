@@ -7,6 +7,8 @@ from app.models.purpose import Purpose
 from app.models.village import Village
 from app.models.person import Person
 from app.models.visitor import Visitor
+from app.models.visitor_profile import VisitorProfile
+from app.models.visit_session import VisitSession
 from app.models.notification import NotificationTemplate, Notification, NotificationLog
 from app.models.log import SMSLog, WhatsAppLog, Report
 from app.models.audit import AuditLog, AuditRecord
@@ -32,6 +34,8 @@ __all__ = [
     "Village",
     "Person",
     "Visitor",
+    "VisitorProfile",
+    "VisitSession",
     "NotificationTemplate",
     "Notification",
     "NotificationLog",
@@ -53,3 +57,4 @@ __all__ = [
     "BroadcastRecipient",
     "DeadLetterJob",
 ]
+

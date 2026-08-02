@@ -1,0 +1,29 @@
+{
+  "verification_status": "SUCCESS",
+  "sql_today": {
+    "visitor_records_today": 3,
+    "total_people_today": 9,
+    "people_inside_today": 3,
+    "people_checked_out_today": 6
+  },
+  "historical_past_day_open_sessions": 7,
+  "dashboard_values": {
+    "todays_visitors": 9,
+    "visitors_inside": 3,
+    "todays_check_ins": 3,
+    "todays_check_outs": 6
+  },
+  "visitors_page_values": {
+    "total_records": 11,
+    "inside_people_count": 3,
+    "auto_closed_records_count": 7
+  },
+  "mobile_apk_values": {
+    "todays_visitors": 9,
+    "visitors_inside": 3,
+    "status_calculation": "UNIFIED_BACKEND_LIFECYCLE"
+  },
+  "match_todays_visitors": true,
+  "match_visitors_inside": true,
+  "historical_visitors_never_inside": true
+}

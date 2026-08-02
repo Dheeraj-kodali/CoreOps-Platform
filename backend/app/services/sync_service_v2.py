@@ -1,13 +1,17 @@
 import json
 import time
 import hashlib
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime, timezone, date as date_cls
 from typing import List, Tuple, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_
+from sqlalchemy.orm import selectinload
 
 from app.models.sync import SyncQueue, SyncToken
+from app.models.visit_session import VisitSession
+from app.models.visitor_profile import VisitorProfile
 from app.models.visitor import Visitor
 from app.models.person import Person
 from app.models.user import User
@@ -16,8 +20,6 @@ from app.schemas.sync_v2 import (
     SyncMetrics, SyncEventItem, DeltaDownloadRequest, DeltaDownloadResponse,
     DeltaEntityChange
 )
-
-
 from app.core.audit_hook import record_audit_event
 
 
@@ -42,7 +44,6 @@ class DeltaSyncServiceV2:
         failed_count = 0
         temple_id = request.temple_id or "SKSA_MAIN"
 
-        # Emit SYNC_START Audit Event
         await record_audit_event(
             self.db,
             action="SYNC_START",
@@ -54,12 +55,10 @@ class DeltaSyncServiceV2:
             new_value={"events_count": len(request.events), "client_id": request.client_id}
         )
 
-        # Validate Batch-level SHA-256 Checksum if provided
         if request.batch_sha256:
             raw_payload_str = json.dumps([e.dict() for e in request.events], sort_keys=True)
             calculated_hash = hashlib.sha256(raw_payload_str.encode('utf-8')).hexdigest()
             if calculated_hash.lower() != request.batch_sha256.lower():
-                # Batch integrity failure
                 for event in request.events:
                     results.append(
                         SyncItemResponse(
@@ -87,7 +86,6 @@ class DeltaSyncServiceV2:
                     )
                 )
 
-        # Process each outbox event item
         for event in request.events:
             item_result, status_type = await self._process_single_event(
                 event=event,
@@ -106,11 +104,9 @@ class DeltaSyncServiceV2:
             elif status_type == "FAILED":
                 failed_count += 1
 
-        # Generate Next Sync Sequence Token
         now_utc = datetime.now(timezone.utc)
         next_sync_token = f"token_{int(now_utc.timestamp())}_{request.client_id[:8]}"
 
-        # Upsert Sync Token state for Client Device
         token_res = await self.db.execute(
             select(SyncToken).filter(
                 SyncToken.client_id == request.client_id,
@@ -161,7 +157,6 @@ class DeltaSyncServiceV2:
         now_iso = datetime.now(timezone.utc).isoformat()
         server_now = datetime.now(timezone.utc)
 
-        # 1. SHA-256 Payload Hash Check if provided
         if event.sha256_hash:
             payload_json_str = json.dumps(event.payload, sort_keys=True)
             calc_hash = hashlib.sha256(payload_json_str.encode('utf-8')).hexdigest()
@@ -175,7 +170,6 @@ class DeltaSyncServiceV2:
                     server_synced_at=now_iso
                 ), "FAILED"
 
-        # 2. Idempotency Check: Query duplicate event in SyncQueue by event_id
         q_res = await self.db.execute(
             select(SyncQueue).filter(
                 SyncQueue.visitor_uuid == event.event_id,
@@ -193,7 +187,6 @@ class DeltaSyncServiceV2:
                 server_synced_at=existing_queue.server_synced_at.isoformat() if existing_queue.server_synced_at else now_iso
             ), "DUPLICATE"
 
-        # Record outbox sync attempt in SyncQueue
         queue_record = SyncQueue(
             temple_id=temple_id,
             visitor_uuid=event.event_id,
@@ -207,14 +200,11 @@ class DeltaSyncServiceV2:
         self.db.add(queue_record)
 
         try:
-            # 3. Action Execution & LWW Conflict Resolution
             if event.action == "CREATE":
-                if event.entity_type == "VISITOR":
-                    v_res = await self.db.execute(
-                        select(Visitor).filter(Visitor.visitor_uuid == event.entity_id)
-                    )
-                    existing_visitor = v_res.scalars().first()
-                    if existing_visitor:
+                if event.entity_type in ("VISITOR", "VISIT_SESSION"):
+                    # Check duplicate session by entity_id
+                    s_res = await self.db.execute(select(VisitSession).filter(VisitSession.id == event.entity_id))
+                    if s_res.scalars().first():
                         queue_record.status = "DUPLICATE"
                         return SyncItemResponse(
                             event_id=event.event_id,
@@ -225,59 +215,73 @@ class DeltaSyncServiceV2:
                         ), "DUPLICATE"
 
                     p = event.payload
-                    new_visitor = Visitor(
+                    phone = p.get("phone_number", p.get("phone", "+910000000000")).strip()
+                    
+                    # 1. Lookup/Create Profile
+                    p_res = await self.db.execute(select(VisitorProfile).filter(VisitorProfile.phone_number == phone))
+                    prof = p_res.scalars().first()
+
+                    if not prof:
+                        prof = VisitorProfile(
+                            id=str(uuid.uuid4()),
+                            visitor_id=p.get("visitor_id") or f"VIP-{str(uuid.uuid4())[:8].upper()}",
+                            name=p.get("name", "Unknown Devotee"),
+                            phone_number=phone,
+                            village_name_custom=p.get("village", p.get("village_name_custom")),
+                            gender=p.get("gender", "MALE"),
+                            age=int(p.get("age", 30)),
+                            default_purpose_id=p.get("purpose_id", p.get("purposeId")),
+                            created_by=user_id,
+                        )
+                        self.db.add(prof)
+                        await self.db.flush()
+
+                    # 2. Create Visit Session
+                    v_date_str = p.get("visitor_date", p.get("visit_date", p.get("date")))
+                    v_date = datetime.strptime(v_date_str[:10], "%Y-%m-%d").date() if v_date_str else date_cls.today()
+                    
+                    v_time_str = p.get("visitor_time", p.get("check_in_time", p.get("time_in", "10:00:00")))
+                    try:
+                        v_time = datetime.strptime(v_time_str[:8], "%H:%M:%S").time()
+                    except ValueError:
+                        v_time = datetime.now().time()
+
+                    new_session = VisitSession(
+                        id=event.entity_id,
+                        visitor_profile_id=prof.id,
+                        temple_id=temple_id,
+                        visit_date=v_date,
+                        check_in_time=v_time,
+                        persons_count=int(p.get("persons_count", p.get("personsCount", 1))),
+                        purpose_id=p.get("purpose_id", p.get("purposeId", "3ef2daff-d716-4285-ac7c-81e702530b44")),
+                        notes=p.get("notes"),
+                        volunteer_id=user_id,
+                        status=p.get("status", "INSIDE"),
+                        sync_status="SYNCED",
+                    )
+                    self.db.add(new_session)
+                    queue_record.status = "SYNCED"
+
+                    # Also populate legacy table for backwards compatibility
+                    v_legacy = Visitor(
+                        id=event.entity_id,
                         visitor_uuid=event.entity_id,
                         temple_id=temple_id,
-                        name=p.get("name", "Unknown Visitor"),
-                        phone_number=p.get("phone_number", p.get("phone", "+910000000000")),
-                        gender=p.get("gender", "OTHER"),
-                        age=int(p.get("age", 30)),
-                        persons_count=int(p.get("persons_count", p.get("personsCount", 1))),
-                        village_name_custom=p.get("village", p.get("village_name_custom")),
-                        purpose_id=p.get("purpose_id", p.get("purposeId", "default_purpose")),
-                        temple_service=p.get("temple_service", p.get("purpose")),
-                        visitor_date=datetime.strptime(p.get("visitor_date", p.get("date", "2026-07-30")), "%Y-%m-%d").date(),
-                        visitor_time=datetime.strptime(p.get("visitor_time", p.get("time_in", "10:00:00")), "%H:%M:%S").time(),
+                        name=prof.name,
+                        phone_number=prof.phone_number,
+                        gender=prof.gender,
+                        age=prof.age,
+                        persons_count=new_session.persons_count,
+                        village_name_custom=prof.village_name_custom,
+                        purpose_id=new_session.purpose_id,
+                        visitor_date=new_session.visit_date,
+                        visitor_time=new_session.check_in_time,
                         volunteer_id=user_id,
-                        notes=p.get("notes"),
+                        notes=new_session.notes,
                         sync_status="SYNCED"
                     )
-                    self.db.add(new_visitor)
-                    queue_record.status = "SYNCED"
-                    return SyncItemResponse(
-                        event_id=event.event_id,
-                        entity_id=event.entity_id,
-                        status="SYNCED",
-                        retryable=False,
-                        server_synced_at=now_iso
-                    ), "SYNCED"
+                    self.db.add(v_legacy)
 
-                elif event.entity_type == "PERSON":
-                    p_res = await self.db.execute(select(Person).filter(Person.id == event.entity_id))
-                    if p_res.scalars().first():
-                        queue_record.status = "DUPLICATE"
-                        return SyncItemResponse(
-                            event_id=event.event_id,
-                            entity_id=event.entity_id,
-                            status="DUPLICATE",
-                            retryable=False,
-                            server_synced_at=now_iso
-                        ), "DUPLICATE"
-
-                    p = event.payload
-                    new_person = Person(
-                        id=event.entity_id,
-                        temple_id=temple_id,
-                        name=p.get("name"),
-                        phone=p.get("phone"),
-                        village=p.get("village"),
-                        address=p.get("address"),
-                        first_visit=p.get("first_visit", now_iso),
-                        last_visit=p.get("last_visit", now_iso),
-                        total_visits=int(p.get("total_visits", 1))
-                    )
-                    self.db.add(new_person)
-                    queue_record.status = "SYNCED"
                     return SyncItemResponse(
                         event_id=event.event_id,
                         entity_id=event.entity_id,
@@ -287,50 +291,32 @@ class DeltaSyncServiceV2:
                     ), "SYNCED"
 
             elif event.action in ("UPDATE", "CHECKOUT"):
-                v_res = await self.db.execute(
-                    select(Visitor).filter(Visitor.visitor_uuid == event.entity_id)
-                )
-                existing_visitor = v_res.scalars().first()
-                if not existing_visitor:
+                s_res = await self.db.execute(select(VisitSession).filter(VisitSession.id == event.entity_id))
+                existing_session = s_res.scalars().first()
+                if not existing_session:
                     queue_record.status = "CONFLICT"
-                    queue_record.error_message = "Target record not found on server for update"
                     return SyncItemResponse(
                         event_id=event.event_id,
                         entity_id=event.entity_id,
                         status="CONFLICT",
                         retryable=False,
-                        error_message="Target record not found on server for update",
+                        error_message="Target visit session record not found on server for update",
                         server_synced_at=now_iso
                     ), "CONFLICT"
 
-                # LWW Conflict Evaluation: Compare Client Timestamp with Existing Record updated_at
-                client_dt = datetime.fromisoformat(event.client_timestamp.replace("Z", "+00:00"))
-                updated_at = existing_visitor.updated_at
-                if updated_at:
-                    if updated_at.tzinfo is None:
-                        updated_at = updated_at.replace(tzinfo=timezone.utc)
-                    if client_dt < updated_at:
-                        queue_record.status = "CONFLICT"
-                        queue_record.error_message = "Server record has newer timestamp (LWW Conflict)"
-                        return SyncItemResponse(
-                            event_id=event.event_id,
-                            entity_id=event.entity_id,
-                            status="CONFLICT",
-                            retryable=False,
-                            error_message="Server record has newer timestamp (LWW Conflict)",
-                            server_synced_at=now_iso
-                        ), "CONFLICT"
-
-                # Apply Update / Checkout
                 p = event.payload
                 if event.action == "CHECKOUT":
                     time_out_str = p.get("time_out", p.get("timeOut", "18:00:00"))
-                    existing_visitor.notes = (existing_visitor.notes or "") + f" | Checked out at {time_out_str}"
+                    try:
+                        existing_session.check_out_time = datetime.strptime(time_out_str[:8], "%H:%M:%S").time()
+                    except ValueError:
+                        existing_session.check_out_time = datetime.now().time()
+                    existing_session.status = "CHECKED_OUT"
                 else:
                     if "notes" in p:
-                        existing_visitor.notes = p["notes"]
+                        existing_session.notes = p["notes"]
 
-                existing_visitor.sync_status = "SYNCED"
+                existing_session.sync_status = "SYNCED"
                 queue_record.status = "SYNCED"
                 return SyncItemResponse(
                     event_id=event.event_id,
@@ -340,7 +326,6 @@ class DeltaSyncServiceV2:
                     server_synced_at=now_iso
                 ), "SYNCED"
 
-            # Unknown Action or Entity Fallback
             queue_record.status = "SYNCED"
             return SyncItemResponse(
                 event_id=event.event_id,
@@ -370,7 +355,6 @@ class DeltaSyncServiceV2:
         server_now = datetime.now(timezone.utc)
         now_iso = server_now.isoformat()
 
-        # Parse threshold timestamp
         threshold_dt: Optional[datetime] = None
         if request.since_timestamp:
             try:
@@ -378,44 +362,50 @@ class DeltaSyncServiceV2:
             except ValueError:
                 threshold_dt = None
 
-        query = select(Visitor).filter(
-            or_(Visitor.temple_id == temple_id, Visitor.temple_id.is_(None)),
-            Visitor.is_deleted.is_(False)
+        query = (
+            select(VisitSession)
+            .options(selectinload(VisitSession.visitor_profile), selectinload(VisitSession.purpose))
+            .filter(
+                or_(VisitSession.temple_id == temple_id, VisitSession.temple_id.is_(None)),
+                VisitSession.is_deleted.is_(False)
+            )
         )
         if threshold_dt:
-            query = query.filter(Visitor.updated_at >= threshold_dt)
+            query = query.filter(VisitSession.updated_at >= threshold_dt)
 
-        query = query.order_by(Visitor.updated_at.asc()).limit(request.limit + 1)
+        query = query.order_by(VisitSession.updated_at.asc()).limit(request.limit + 1)
         res = await self.db.execute(query)
-        visitors = res.scalars().all()
+        sessions = res.scalars().all()
 
-        has_more = len(visitors) > request.limit
+        has_more = len(sessions) > request.limit
         if has_more:
-            visitors = visitors[:request.limit]
+            sessions = sessions[:request.limit]
 
         changes: List[DeltaEntityChange] = []
-        for v in visitors:
+        for s in sessions:
+            prof = s.visitor_profile
             changes.append(
                 DeltaEntityChange(
                     entity_type="VISITOR",
-                    entity_id=v.visitor_uuid,
-                    action="UPDATE" if v.created_at != v.updated_at else "CREATE",
+                    entity_id=s.id,
+                    action="UPDATE" if s.created_at != s.updated_at else "CREATE",
                     payload={
-                        "visitor_uuid": v.visitor_uuid,
-                        "name": v.name,
-                        "phone_number": v.phone_number,
-                        "gender": v.gender,
-                        "age": v.age,
-                        "persons_count": v.persons_count,
-                        "village_name_custom": v.village_name_custom,
-                        "purpose_id": v.purpose_id,
-                        "temple_service": v.temple_service,
-                        "visitor_date": v.visitor_date.isoformat(),
-                        "visitor_time": v.visitor_time.isoformat(),
-                        "notes": v.notes,
-                        "sync_status": v.sync_status
+                        "visitor_uuid": s.id,
+                        "visitor_profile_id": s.visitor_profile_id,
+                        "name": prof.name if prof else "Visitor",
+                        "phone_number": prof.phone_number if prof else "",
+                        "gender": prof.gender if prof else "MALE",
+                        "age": prof.age if prof else 30,
+                        "persons_count": s.persons_count,
+                        "village_name_custom": prof.village_name_custom if prof else None,
+                        "purpose_id": s.purpose_id,
+                        "visitor_date": s.visit_date.isoformat(),
+                        "visitor_time": s.check_in_time.isoformat(),
+                        "status": s.status,
+                        "notes": s.notes,
+                        "sync_status": s.sync_status
                     },
-                    server_synced_at=v.updated_at.isoformat() if v.updated_at else now_iso
+                    server_synced_at=s.updated_at.isoformat() if s.updated_at else now_iso
                 )
             )
 

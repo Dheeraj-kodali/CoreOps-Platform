@@ -1,0 +1,11 @@
+{
+  "migration_status": "COMPLETED",
+  "visitor_profiles_verified": true,
+  "visit_sessions_verified": true,
+  "edit_profile_verified": true,
+  "day_change_autoclose_verified": true,
+  "today_dashboard_verified": true,
+  "filters_and_search_verified": true,
+  "sql_integrity": "EXACT_MATCH",
+  "timestamp": "2026-08-02T16:53:58.891240+00:00"
+}

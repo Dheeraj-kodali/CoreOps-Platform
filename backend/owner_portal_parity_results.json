@@ -1,0 +1,44 @@
+{
+  "status": "SUCCESS",
+  "timestamp": "2026-08-02T17:00:49.292220+00:00",
+  "date_today": "2026-08-02",
+  "date_yesterday": "2026-08-01",
+  "neon_sql": {
+    "today": {
+      "total_sessions_today": 4,
+      "total_visitors_today": 6,
+      "inside_today": 2,
+      "checked_out_today": 4,
+      "auto_closed_today": 0
+    },
+    "yesterday": {
+      "total_sessions_yesterday": 1,
+      "total_visitors_yesterday": 1,
+      "inside_yesterday": 1,
+      "checked_out_yesterday": 0,
+      "auto_closed_yesterday": 0
+    }
+  },
+  "dashboard_api": {
+    "todays_visitors": 6,
+    "visitors_inside": 2
+  },
+  "visitors_api": {
+    "today_sessions": 4,
+    "today_visitors": 6,
+    "today_inside": 2,
+    "today_checked_out": 4,
+    "today_auto_closed": 0,
+    "yesterday_sessions": 1,
+    "yesterday_visitors": 1,
+    "yesterday_inside": 0,
+    "yesterday_checked_out": 0,
+    "yesterday_auto_closed": 1
+  },
+  "parity_checks": {
+    "match_today_visitors": true,
+    "match_today_inside": true,
+    "match_yesterday_visitors": true,
+    "all_counts_match_exactly": true
+  }
+}

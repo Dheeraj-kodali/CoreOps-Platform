@@ -1,0 +1,98 @@
+{
+  "status": "SUCCESS",
+  "timestamp": "2026-08-02T17:04:17.709978+00:00",
+  "today_ledger": {
+    "date": "2026-08-02",
+    "summary": {
+      "date": "2026-08-02",
+      "display_date": "02-Aug-2026",
+      "total_visitors": 6,
+      "people_inside": 2,
+      "checked_out": 4,
+      "auto_closed": 0,
+      "purpose_breakdown": {
+        "General Darshan": 6
+      },
+      "volunteer_breakdown": {
+        "usr_admin_default": 6
+      },
+      "avg_stay_minutes": "42 min",
+      "peak_hour": "09:00 AM - 11:30 AM",
+      "is_read_only": false
+    },
+    "sessions_sample": [
+      {
+        "id": "93124ac6-1b45-4cce-93c1-227f555fd9d1",
+        "name": "Dheeraj Kodali",
+        "phone": "+919879638422",
+        "persons_count": 1,
+        "purpose": "General Darshan",
+        "check_in_time": "14:00:00",
+        "check_out_time": null,
+        "status": "INSIDE",
+        "volunteer": "usr_admin_default"
+      },
+      {
+        "id": "db3adb12-2ef3-4aac-9c9f-e0f1d99a5f79",
+        "name": "Dheeraj Kodali",
+        "phone": "+919879638422",
+        "persons_count": 2,
+        "purpose": "General Darshan",
+        "check_in_time": "09:30:00",
+        "check_out_time": "11:30:00",
+        "status": "CHECKED_OUT",
+        "volunteer": "usr_admin_default"
+      },
+      {
+        "id": "4c4022cd-dfab-4597-b3b5-afbee4a2f25a",
+        "name": "Dheeraj Kodali",
+        "phone": "+919876543210",
+        "persons_count": 1,
+        "purpose": "General Darshan",
+        "check_in_time": "14:00:00",
+        "check_out_time": null,
+        "status": "INSIDE",
+        "volunteer": "usr_admin_default"
+      },
+      {
+        "id": "a0429026-4299-437e-ad33-8419db97034f",
+        "name": "Dheeraj Kodali",
+        "phone": "+919876543210",
+        "persons_count": 2,
+        "purpose": "General Darshan",
+        "check_in_time": "09:30:00",
+        "check_out_time": "11:30:00",
+        "status": "CHECKED_OUT",
+        "volunteer": "usr_admin_default"
+      }
+    ]
+  },
+  "yesterday_ledger": {
+    "date": "2026-08-01",
+    "summary": {
+      "date": "2026-08-01",
+      "display_date": "01-Aug-2026",
+      "total_visitors": 1,
+      "people_inside": 0,
+      "checked_out": 0,
+      "auto_closed": 1,
+      "purpose_breakdown": {
+        "General Darshan": 1
+      },
+      "volunteer_breakdown": {
+        "usr_admin_default": 1
+      },
+      "avg_stay_minutes": "42 min",
+      "peak_hour": "09:00 AM - 11:30 AM",
+      "is_read_only": true
+    },
+    "is_read_only": true
+  },
+  "total_ledgers_count": 2,
+  "parity": {
+    "match_today_visitors": true,
+    "match_people_inside": true,
+    "yesterday_read_only": true,
+    "all_counts_match_exactly": true
+  }
+}

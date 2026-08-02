@@ -1,11 +1,16 @@
 from datetime import date
 from typing import Optional, List
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, HTTPException, Body
+
 from app.api.deps import get_current_user, require_permission, get_visitor_service
 from app.models.user import User
 from app.services.visitor_service import VisitorService
-from app.schemas.visitor import VisitorCreate, VisitorUpdate, VisitorResponse, VisitorListResponse
+from app.schemas.visitor import (
+    VisitSessionCreate, VisitorProfileUpdate, VisitorResponse, VisitorListResponse,
+    PhoneLookupResponse, VisitorProfileResponse, VisitorUpdate,
+    DailyLedgerResponse, DailyLedgerListResponse, DailyLedgerSummary
+)
 
 router = APIRouter()
 
@@ -19,13 +24,111 @@ class VisitorCheckoutRequest(BaseModel):
     duration: Optional[str] = None
 
 
-@router.post("/", response_model=VisitorResponse, status_code=status.HTTP_201_CREATED)
-async def create_visitor(
-    payload: VisitorCreate,
+@router.get("/lookup-phone", response_model=PhoneLookupResponse)
+async def lookup_phone(
+    phone_number: str = Query(..., min_length=5, max_length=20),
     service: VisitorService = Depends(get_visitor_service),
     current_user: User = Depends(get_current_user),
 ):
-    return await service.register_visitor(payload, current_user)
+    """
+    Search Visitor Profile by Phone Number for Reception Auto-Fill Flow.
+    Returns profile information + last visit summary if profile exists.
+    """
+    return await service.lookup_phone(phone_number)
+
+
+@router.post("/", response_model=VisitorResponse, status_code=status.HTTP_201_CREATED)
+async def create_visitor(
+    payload: VisitSessionCreate,
+    service: VisitorService = Depends(get_visitor_service),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Visitor Entry Flow:
+    - If profile exists: reuses profile, creates ONLY a new Visit Session.
+    - If profile does NOT exist: creates Visitor Profile + first Visit Session.
+    """
+    session_record = await service.register_visitor(payload, current_user)
+    
+    # Map to VisitorResponse for UI compatibility
+    prof = session_record.visitor_profile
+    return VisitorResponse(
+        id=session_record.id,
+        visitor_uuid=session_record.id,
+        name=prof.name if prof else "Visitor",
+        phone_number=prof.phone_number if prof else "",
+        gender=prof.gender if prof else "MALE",
+        age=prof.age if prof else 30,
+        persons_count=session_record.persons_count,
+        temple_id=session_record.temple_id,
+        village_id=prof.village_id if prof else None,
+        village_name_custom=prof.village_name_custom if prof else None,
+        purpose_id=session_record.purpose_id,
+        visitor_date=session_record.visit_date,
+        visitor_time=session_record.check_in_time,
+        volunteer_id=session_record.volunteer_id,
+        notes=session_record.notes,
+        latitude=session_record.latitude,
+        longitude=session_record.longitude,
+        sync_status=session_record.sync_status,
+        status=session_record.status,
+        is_auto_closed=session_record.is_auto_closed,
+        check_in_time=str(session_record.check_in_time),
+        check_out_time=str(session_record.check_out_time) if session_record.check_out_time else None,
+        duration=session_record.duration,
+        created_at=session_record.created_at,
+        updated_at=session_record.updated_at,
+        purpose=session_record.purpose,
+        village=prof.village if prof else None,
+    )
+
+
+@router.put("/profiles/{profile_id}", response_model=VisitorProfileResponse)
+async def update_visitor_profile(
+    profile_id: str,
+    payload: VisitorProfileUpdate,
+    service: VisitorService = Depends(get_visitor_service),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Edit Profile Functionality:
+    Modifies permanent Visitor Profile fields only. Past Visit Sessions remain unchanged.
+    """
+    updated_profile = await service.update_profile(profile_id, payload, current_user)
+    return VisitorProfileResponse.model_validate(updated_profile)
+
+
+def _map_session_to_visitor_response(session_record) -> VisitorResponse:
+    prof = session_record.visitor_profile
+    return VisitorResponse(
+        id=session_record.id,
+        visitor_uuid=session_record.id,
+        name=prof.name if prof else "Visitor",
+        phone_number=prof.phone_number if prof else "",
+        gender=prof.gender if prof else "MALE",
+        age=prof.age if prof else 30,
+        persons_count=session_record.persons_count,
+        temple_id=session_record.temple_id,
+        village_id=prof.village_id if prof else None,
+        village_name_custom=prof.village_name_custom if prof else None,
+        purpose_id=session_record.purpose_id,
+        visitor_date=session_record.visit_date,
+        visitor_time=session_record.check_in_time,
+        volunteer_id=session_record.volunteer_id,
+        notes=session_record.notes,
+        latitude=session_record.latitude,
+        longitude=session_record.longitude,
+        sync_status=session_record.sync_status,
+        status=session_record.status,
+        is_auto_closed=session_record.is_auto_closed,
+        check_in_time=str(session_record.check_in_time),
+        check_out_time=str(session_record.check_out_time) if session_record.check_out_time else None,
+        duration=session_record.duration,
+        created_at=session_record.created_at,
+        updated_at=session_record.updated_at,
+        purpose=session_record.purpose,
+        village=prof.village if prof else None,
+    )
 
 
 @router.get("/", response_model=VisitorListResponse)
@@ -36,26 +139,132 @@ async def list_visitors(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     volunteer_id: Optional[str] = None,
+    status_filter: Optional[str] = Query(default=None, alias="status"),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
     service: VisitorService = Depends(get_visitor_service),
     current_user: User = Depends(get_current_user),
 ):
+    """
+    List Visit Sessions with filtering by Date Range, Status (INSIDE, CHECKED_OUT, AUTO_CLOSED), Purpose, Volunteer, and Search.
+    """
     try:
-        items, total, pages = await service.list_visitors(
+        items, total, pages = await service.list_sessions(
             search=search,
             purpose_id=purpose_id,
             village_id=village_id,
             date_from=date_from,
             date_to=date_to,
             volunteer_id=volunteer_id,
+            status_filter=status_filter,
             page=page,
             limit=limit,
         )
-        dtos = [VisitorResponse.model_validate(item) for item in items]
+        dtos = [_map_session_to_visitor_response(s) for s in items]
         return VisitorListResponse(items=dtos, total=total, page=page, limit=limit, pages=pages).model_dump(mode="json")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"List visitors error: {str(e)}")
+
+        visitor_time=session_record.check_in_time,
+        volunteer_id=session_record.volunteer_id,
+        notes=session_record.notes,
+        latitude=session_record.latitude,
+        longitude=session_record.longitude,
+        sync_status=session_record.sync_status,
+        status=session_record.status,
+        is_auto_closed=session_record.is_auto_closed,
+        check_in_time=str(session_record.check_in_time),
+        check_out_time=str(session_record.check_out_time) if session_record.check_out_time else None,
+        duration=session_record.duration,
+        created_at=session_record.created_at,
+        updated_at=session_record.updated_at,
+        purpose=session_record.purpose,
+        village=prof.village if prof else None,
+    )
+
+
+@router.get("/ledgers", response_model=DailyLedgerListResponse)
+async def list_daily_ledgers(
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    search: Optional[str] = None,
+    status_filter: Optional[str] = Query(default=None, alias="status"),
+    limit: int = Query(default=20, ge=1, le=100),
+    service: VisitorService = Depends(get_visitor_service),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Daily Visit Ledger Endpoint:
+    Returns ledgers list containing { date, summary, sessions } for each operational day.
+    """
+    ledger_data = await service.get_daily_ledgers_list(
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+        status_filter=status_filter,
+        limit=limit,
+    )
+
+    items = []
+    for item in ledger_data["items"]:
+        mapped_sessions = [_map_session_to_visitor_response(s) for s in item["sessions"]]
+        summary = DailyLedgerSummary(**item["summary"])
+        items.append(DailyLedgerResponse(date=item["date"], summary=summary, sessions=mapped_sessions))
+
+    today_ledger = None
+    if ledger_data.get("today_ledger"):
+        tl = ledger_data["today_ledger"]
+        mapped_today_sessions = [_map_session_to_visitor_response(s) for s in tl["sessions"]]
+        today_ledger = DailyLedgerResponse(
+            date=tl["date"],
+            summary=DailyLedgerSummary(**tl["summary"]),
+            sessions=mapped_today_sessions,
+        )
+
+    return DailyLedgerListResponse(
+        items=items,
+        total_ledgers=ledger_data["total_ledgers"],
+        today_ledger=today_ledger,
+    )
+
+
+@router.get("/ledgers/today", response_model=DailyLedgerResponse)
+async def get_today_ledger(
+    service: VisitorService = Depends(get_visitor_service),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Today's Daily Visit Ledger:
+    Loads ONLY today's operational ledger { date, summary, sessions }.
+    If new calendar day, automatically returns fresh ledger with zero counts if empty.
+    """
+    data = await service.get_daily_ledger(date.today())
+    mapped_sessions = [_map_session_to_visitor_response(s) for s in data["sessions"]]
+    return DailyLedgerResponse(
+        date=data["date"],
+        summary=DailyLedgerSummary(**data["summary"]),
+        sessions=mapped_sessions,
+    )
+
+
+@router.get("/ledgers/{visit_date}", response_model=DailyLedgerResponse)
+async def get_daily_ledger_by_date(
+    visit_date: date,
+    service: VisitorService = Depends(get_visitor_service),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get Daily Visit Ledger by specific date { date, summary, sessions }.
+    Past days are read-only (`summary.is_read_only = True`).
+    """
+    data = await service.get_daily_ledger(visit_date)
+    mapped_sessions = [_map_session_to_visitor_response(s) for s in data["sessions"]]
+    return DailyLedgerResponse(
+        date=data["date"],
+        summary=DailyLedgerSummary(**data["summary"]),
+        sessions=mapped_sessions,
+    )
+
 
 
 @router.get("/check-duplicate")
@@ -66,7 +275,7 @@ async def check_duplicate(
     service: VisitorService = Depends(get_visitor_service),
     current_user: User = Depends(get_current_user),
 ):
-    duplicate = await service.check_duplicate(name=name, phone_number=phone_number, visitor_date=visitor_date)
+    duplicate = await service.visitor_repo.check_duplicate(name=name, phone_number=phone_number, visitor_date=visitor_date)
     return {"is_duplicate": duplicate is not None, "existing_record": duplicate}
 
 
@@ -79,11 +288,11 @@ async def bulk_delete_visitors(
     deleted_count = 0
     for v_id in payload.visitor_ids:
         try:
-            await service.delete_visitor(v_id, current_user)
+            await service.delete_session(v_id, current_user)
             deleted_count += 1
         except Exception:
             pass
-    return {"message": f"Successfully deleted {deleted_count} visitor records.", "deleted_count": deleted_count}
+    return {"message": f"Successfully deleted {deleted_count} visitor session records.", "deleted_count": deleted_count}
 
 
 @router.get("/{visitor_id}", response_model=VisitorResponse)
@@ -92,7 +301,37 @@ async def get_visitor(
     service: VisitorService = Depends(get_visitor_service),
     current_user: User = Depends(get_current_user),
 ):
-    return await service.get_visitor_by_id(visitor_id)
+    session_record = await service.get_session_by_id(visitor_id)
+    prof = session_record.visitor_profile
+    return VisitorResponse(
+        id=session_record.id,
+        visitor_uuid=session_record.id,
+        name=prof.name if prof else "Visitor",
+        phone_number=prof.phone_number if prof else "",
+        gender=prof.gender if prof else "MALE",
+        age=prof.age if prof else 30,
+        persons_count=session_record.persons_count,
+        temple_id=session_record.temple_id,
+        village_id=prof.village_id if prof else None,
+        village_name_custom=prof.village_name_custom if prof else None,
+        purpose_id=session_record.purpose_id,
+        visitor_date=session_record.visit_date,
+        visitor_time=session_record.check_in_time,
+        volunteer_id=session_record.volunteer_id,
+        notes=session_record.notes,
+        latitude=session_record.latitude,
+        longitude=session_record.longitude,
+        sync_status=session_record.sync_status,
+        status=session_record.status,
+        is_auto_closed=session_record.is_auto_closed,
+        check_in_time=str(session_record.check_in_time),
+        check_out_time=str(session_record.check_out_time) if session_record.check_out_time else None,
+        duration=session_record.duration,
+        created_at=session_record.created_at,
+        updated_at=session_record.updated_at,
+        purpose=session_record.purpose,
+        village=prof.village if prof else None,
+    )
 
 
 @router.put("/{visitor_id}", response_model=VisitorResponse)
@@ -102,7 +341,37 @@ async def update_visitor(
     service: VisitorService = Depends(get_visitor_service),
     current_user: User = Depends(get_current_user),
 ):
-    return await service.update_visitor(visitor_id, payload, current_user)
+    session_record = await service.update_visitor(visitor_id, payload, current_user)
+    prof = session_record.visitor_profile
+    return VisitorResponse(
+        id=session_record.id,
+        visitor_uuid=session_record.id,
+        name=prof.name if prof else "Visitor",
+        phone_number=prof.phone_number if prof else "",
+        gender=prof.gender if prof else "MALE",
+        age=prof.age if prof else 30,
+        persons_count=session_record.persons_count,
+        temple_id=session_record.temple_id,
+        village_id=prof.village_id if prof else None,
+        village_name_custom=prof.village_name_custom if prof else None,
+        purpose_id=session_record.purpose_id,
+        visitor_date=session_record.visit_date,
+        visitor_time=session_record.check_in_time,
+        volunteer_id=session_record.volunteer_id,
+        notes=session_record.notes,
+        latitude=session_record.latitude,
+        longitude=session_record.longitude,
+        sync_status=session_record.sync_status,
+        status=session_record.status,
+        is_auto_closed=session_record.is_auto_closed,
+        check_in_time=str(session_record.check_in_time),
+        check_out_time=str(session_record.check_out_time) if session_record.check_out_time else None,
+        duration=session_record.duration,
+        created_at=session_record.created_at,
+        updated_at=session_record.updated_at,
+        purpose=session_record.purpose,
+        village=prof.village if prof else None,
+    )
 
 
 @router.delete("/{visitor_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -111,10 +380,8 @@ async def delete_visitor(
     service: VisitorService = Depends(get_visitor_service),
     current_user: User = Depends(require_permission("visitors:delete")),
 ):
-    await service.delete_visitor(visitor_id, current_user)
+    await service.delete_session(visitor_id, current_user)
 
-
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
 
 @router.put("/{visitor_id}/checkout", response_model=VisitorResponse)
 @router.post("/{visitor_id}/checkout", response_model=VisitorResponse)
@@ -127,7 +394,36 @@ async def checkout_visitor(
     try:
         c_time = payload.checkout_time if payload else None
         dur = payload.duration if payload else None
-        res = await service.checkout_visitor(visitor_id, checkout_time=c_time, duration=dur, current_user=current_user)
-        return VisitorResponse.model_validate(res)
+        session_record = await service.checkout_visitor(visitor_id, checkout_time=c_time, duration=dur, current_user=current_user)
+        prof = session_record.visitor_profile
+        return VisitorResponse(
+            id=session_record.id,
+            visitor_uuid=session_record.id,
+            name=prof.name if prof else "Visitor",
+            phone_number=prof.phone_number if prof else "",
+            gender=prof.gender if prof else "MALE",
+            age=prof.age if prof else 30,
+            persons_count=session_record.persons_count,
+            temple_id=session_record.temple_id,
+            village_id=prof.village_id if prof else None,
+            village_name_custom=prof.village_name_custom if prof else None,
+            purpose_id=session_record.purpose_id,
+            visitor_date=session_record.visit_date,
+            visitor_time=session_record.check_in_time,
+            volunteer_id=session_record.volunteer_id,
+            notes=session_record.notes,
+            latitude=session_record.latitude,
+            longitude=session_record.longitude,
+            sync_status=session_record.sync_status,
+            status=session_record.status,
+            is_auto_closed=session_record.is_auto_closed,
+            check_in_time=str(session_record.check_in_time),
+            check_out_time=str(session_record.check_out_time) if session_record.check_out_time else None,
+            duration=session_record.duration,
+            created_at=session_record.created_at,
+            updated_at=session_record.updated_at,
+            purpose=session_record.purpose,
+            village=prof.village if prof else None,
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Checkout error: {str(e)}")

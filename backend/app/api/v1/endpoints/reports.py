@@ -6,10 +6,13 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
+
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.models.visitor import Visitor
+from app.models.visit_session import VisitSession
+from app.models.visitor_profile import VisitorProfile
 from app.models.purpose import Purpose
 from app.models.sync import SyncQueue
 from app.models.audit import AuditRecord
@@ -29,40 +32,64 @@ async def get_reports_summary(
     start_date = date_from or (today - timedelta(days=30))
     end_date = date_to or today
 
-    # Base Queries
+    # Auto-close past sessions
+    visitor_repo = VisitorRepository(db)
+    await visitor_repo.auto_close_past_sessions(today)
+
+    # Base Queries from VisitSession
     today_v_res = await db.execute(
-        select(func.coalesce(func.sum(Visitor.persons_count), 0)).filter(Visitor.visitor_date == today)
+        select(func.coalesce(func.sum(VisitSession.persons_count), 0)).filter(
+            VisitSession.visit_date == today, VisitSession.is_deleted.is_(False)
+        )
     )
     todays_visitors = today_v_res.scalar_one()
 
-    total_v_res = await db.execute(select(func.coalesce(func.sum(Visitor.persons_count), 0)))
+    total_v_res = await db.execute(
+        select(func.coalesce(func.sum(VisitSession.persons_count), 0)).filter(VisitSession.is_deleted.is_(False))
+    )
     total_visitors = total_v_res.scalar_one()
 
-    checkins_res = await db.execute(select(func.count(Visitor.id)).filter(Visitor.visitor_date == today))
+    checkins_res = await db.execute(
+        select(func.count(VisitSession.id)).filter(
+            VisitSession.visit_date == today, VisitSession.is_deleted.is_(False)
+        )
+    )
     checkins = checkins_res.scalar_one()
-    checkouts = int(checkins * 0.72)
+
+    checkouts_res = await db.execute(
+        select(func.count(VisitSession.id)).filter(
+            VisitSession.visit_date == today,
+            VisitSession.status.in_(["CHECKED_OUT", "AUTO_CLOSED"]),
+            VisitSession.is_deleted.is_(False)
+        )
+    )
+    checkouts = checkouts_res.scalar_one()
 
     pending_sync_res = await db.execute(select(func.count(SyncQueue.id)).filter(SyncQueue.status == "PENDING"))
     pending_sync = pending_sync_res.scalar_one()
 
-    # Purpose Breakdown
+    # Purpose Breakdown from VisitSession
     purpose_res = await db.execute(
-        select(Purpose.name_en, func.count(Visitor.id).label("count"))
-        .join(Visitor, Visitor.purpose_id == Purpose.id)
+        select(Purpose.name_en, func.count(VisitSession.id).label("count"))
+        .join(VisitSession, VisitSession.purpose_id == Purpose.id)
+        .filter(VisitSession.is_deleted.is_(False))
         .group_by(Purpose.name_en)
     )
     purpose_breakdown = [{"name": row.name_en, "count": row.count} for row in purpose_res.all()]
 
-    # Hourly distribution
+    # Hourly distribution for today's sessions
+    today_sessions_stmt = select(VisitSession).filter(
+        VisitSession.visit_date == today, VisitSession.is_deleted.is_(False)
+    )
+    today_sessions = (await db.execute(today_sessions_stmt)).scalars().all()
+    hourly_map = [0] * 24
+    for s in today_sessions:
+        if s.check_in_time:
+            hourly_map[s.check_in_time.hour] += s.persons_count
+
     visitors_per_hour = [
-        {"hour": "06:00 AM", "count": 12},
-        {"hour": "08:00 AM", "count": 45},
-        {"hour": "10:00 AM", "count": 88},
-        {"hour": "12:00 PM", "count": 64},
-        {"hour": "02:00 PM", "count": 35},
-        {"hour": "04:00 PM", "count": 52},
-        {"hour": "06:00 PM", "count": 78},
-        {"hour": "08:00 PM", "count": 20},
+        {"hour": f"{h:02d}:00", "count": c}
+        for h, c in enumerate(hourly_map)
     ]
 
     return {
@@ -96,7 +123,6 @@ async def get_audit_logs(
     logs = res.scalars().all()
 
     if not logs:
-        # Generate clean audit items if audit log is clean/fresh
         now = datetime.now(timezone.utc)
         demo_logs = [
             {
@@ -116,26 +142,6 @@ async def get_audit_logs(
                 "role": "Administrator",
                 "action": "VISITOR_REGISTRATION",
                 "module": "Visitor Management",
-                "result": "SUCCESS",
-                "ip_address": "127.0.0.1",
-            },
-            {
-                "audit_id": "aud-003",
-                "timestamp": (now - timedelta(minutes=45)).strftime("%Y-%m-%d %H:%M:%S"),
-                "user": "staff_1",
-                "role": "Staff User",
-                "action": "OUTBOX_SYNC",
-                "module": "Sync Engine",
-                "result": "SUCCESS",
-                "ip_address": "192.168.1.50",
-            },
-            {
-                "audit_id": "aud-004",
-                "timestamp": (now - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S"),
-                "user": "admin",
-                "role": "Administrator",
-                "action": "BROADCAST_DISPATCH",
-                "module": "Communication",
                 "result": "SUCCESS",
                 "ip_address": "127.0.0.1",
             },
@@ -165,71 +171,98 @@ async def export_reports(
     export_format: str = Query(..., alias="format", pattern="^(csv|excel|pdf)$"),
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
-    purpose_id: Optional[int] = None,
+    purpose_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """
+    Generate reports from Visit Sessions.
+    Includes: Visit Date, Check-In, Check-Out, Duration, Persons Count, Purpose, Volunteer, GPS, Status, AUTO_CLOSED flag.
+    """
     visitor_repo = VisitorRepository(db)
-    visitors, _ = await visitor_repo.search_and_filter(
+    sessions, _ = await visitor_repo.search_and_filter(
         date_from=date_from,
         date_to=date_to,
         purpose_id=purpose_id,
         limit=10000,
     )
 
-    from app.services.visitor_lifecycle import eval_visitor_lifecycle
-
     if export_format == "csv":
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["ID", "UUID", "Name", "Phone", "Persons", "Purpose", "Visit Date", "Check-in", "Check-out", "Duration", "Current Status", "Auto Closed"])
+        writer.writerow([
+            "Session ID", "Visitor ID", "Name", "Phone", "Visit Date", "Check-in", "Check-out",
+            "Duration", "Persons Count", "Purpose", "Volunteer", "GPS Lat", "GPS Long", "Status", "AUTO_CLOSED Flag"
+        ])
 
-        for v in visitors:
-            info = eval_visitor_lifecycle(v)
+        for s in sessions:
+            prof = s.visitor_profile
+            v_id = prof.visitor_id if prof else ""
+            v_name = prof.name if prof else "Visitor"
+            v_phone = prof.phone_number if prof else ""
+            p_name = s.purpose.name_en if s.purpose else "General Darshan"
+            vol_name = s.volunteer.username if s.volunteer else s.volunteer_id
+
             writer.writerow([
-                v.id,
-                v.visitor_uuid,
-                v.name,
-                v.phone_number,
-                v.persons_count,
-                v.purpose.name_en if v.purpose else "",
-                str(v.visitor_date),
-                info["check_in_time"],
-                info["check_out_time"],
-                info["duration"],
-                info["status"],
-                "Yes" if info["is_auto_closed"] else "No",
+                s.id,
+                v_id,
+                v_name,
+                v_phone,
+                str(s.visit_date),
+                str(s.check_in_time),
+                str(s.check_out_time) if s.check_out_time else ("23:59:59" if s.is_auto_closed else "N/A"),
+                s.duration,
+                s.persons_count,
+                p_name,
+                vol_name,
+                s.latitude or "N/A",
+                s.longitude or "N/A",
+                s.status,
+                "YES" if s.is_auto_closed else "NO",
             ])
 
         output.seek(0)
         return StreamingResponse(
             io.BytesIO(output.getvalue().encode("utf-8")),
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=visitor_report_{date.today()}.csv"},
+            headers={"Content-Disposition": f"attachment; filename=visitor_sessions_report_{date.today()}.csv"},
         )
 
     elif export_format == "excel":
         import openpyxl
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "Visitors Report"
+        ws.title = "Visit Sessions Report"
 
-        ws.append(["ID", "UUID", "Name", "Phone", "Persons", "Purpose", "Visit Date", "Check-in", "Check-out", "Duration", "Current Status", "Auto Closed"])
-        for v in visitors:
-            info = eval_visitor_lifecycle(v)
+        ws.append([
+            "Session ID", "Visitor ID", "Name", "Phone", "Visit Date", "Check-in", "Check-out",
+            "Duration", "Persons Count", "Purpose", "Volunteer", "GPS Lat", "GPS Long", "Status", "AUTO_CLOSED Flag"
+        ])
+
+        for s in sessions:
+            prof = s.visitor_profile
+            v_id = prof.visitor_id if prof else ""
+            v_name = prof.name if prof else "Visitor"
+            v_phone = prof.phone_number if prof else ""
+            p_name = s.purpose.name_en if s.purpose else "General Darshan"
+            vol_name = s.volunteer.username if s.volunteer else s.volunteer_id
+
             ws.append([
-                v.id,
-                v.visitor_uuid,
-                v.name,
-                v.phone_number,
-                v.persons_count,
-                v.purpose.name_en if v.purpose else "",
-                str(v.visitor_date),
-                info["check_in_time"],
-                info["check_out_time"],
-                info["duration"],
-                info["status"],
-                "Yes" if info["is_auto_closed"] else "No",
+                s.id,
+                v_id,
+                v_name,
+                v_phone,
+                str(s.visit_date),
+                str(s.check_in_time),
+                str(s.check_out_time) if s.check_out_time else ("23:59:59" if s.is_auto_closed else "N/A"),
+                s.duration,
+                s.persons_count,
+                p_name,
+                vol_name,
+                s.latitude or "N/A",
+                s.longitude or "N/A",
+                s.status,
+                "YES" if s.is_auto_closed else "NO",
             ])
 
         excel_stream = io.BytesIO()
@@ -239,7 +272,7 @@ async def export_reports(
         return StreamingResponse(
             excel_stream,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename=visitor_report_{date.today()}.xlsx"},
+            headers={"Content-Disposition": f"attachment; filename=visitor_sessions_report_{date.today()}.xlsx"},
         )
 
     elif export_format == "pdf":
@@ -249,7 +282,7 @@ async def export_reports(
         pdf_stream = io.BytesIO()
         c = canvas.Canvas(pdf_stream, pagesize=letter)
         c.setFont("Helvetica-Bold", 16)
-        c.drawString(50, 750, "Sri Kalki Seva Alayam - Visitor Session Report")
+        c.drawString(50, 750, "Sri Kalki Seva Alayam - Visit Sessions Report")
         c.setFont("Helvetica", 12)
         c.drawString(50, 730, f"Generated Report - {date.today()}")
         c.line(50, 720, 550, 720)
@@ -265,14 +298,14 @@ async def export_reports(
         y -= 20
         c.setFont("Helvetica", 8)
 
-        for v in visitors[:30]:
-            info = eval_visitor_lifecycle(v)
-            c.drawString(40, y, v.name[:18])
-            c.drawString(160, y, v.phone_number)
-            c.drawString(250, y, str(v.visitor_date))
-            c.drawString(330, y, info["check_in_time"][:10])
-            c.drawString(400, y, info["status"])
-            c.drawString(480, y, "Yes" if info["is_auto_closed"] else "No")
+        for s in sessions[:30]:
+            prof = s.visitor_profile
+            c.drawString(40, y, prof.name[:18] if prof else "Visitor")
+            c.drawString(160, y, prof.phone_number if prof else "")
+            c.drawString(250, y, str(s.visit_date))
+            c.drawString(330, y, str(s.check_in_time)[:8])
+            c.drawString(400, y, s.status)
+            c.drawString(480, y, "YES" if s.is_auto_closed else "NO")
             y -= 18
 
         c.showPage()
@@ -282,5 +315,5 @@ async def export_reports(
         return StreamingResponse(
             pdf_stream,
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=visitor_report_{date.today()}.pdf"},
+            headers={"Content-Disposition": f"attachment; filename=visitor_sessions_report_{date.today()}.pdf"},
         )
