@@ -92,15 +92,42 @@ class VisitorResponse(VisitorBase):
                 data["check_in_time"] = info["check_in_time"]
                 data["check_out_time"] = info["check_out_time"]
                 data["duration"] = info["duration"]
+                return data
             else:
-                object.__setattr__(data, "status", info["status"]) if hasattr(data, "__dict__") else setattr(data, "status", info["status"])
-                object.__setattr__(data, "is_auto_closed", info["is_auto_closed"]) if hasattr(data, "__dict__") else setattr(data, "is_auto_closed", info["is_auto_closed"])
-                object.__setattr__(data, "check_in_time", info["check_in_time"]) if hasattr(data, "__dict__") else setattr(data, "check_in_time", info["check_in_time"])
-                object.__setattr__(data, "check_out_time", info["check_out_time"]) if hasattr(data, "__dict__") else setattr(data, "check_out_time", info["check_out_time"])
-                object.__setattr__(data, "duration", info["duration"]) if hasattr(data, "__dict__") else setattr(data, "duration", info["duration"])
+                return {
+                    "id": str(getattr(data, "id", "")),
+                    "visitor_uuid": getattr(data, "visitor_uuid", ""),
+                    "volunteer_id": getattr(data, "volunteer_id", ""),
+                    "name": getattr(data, "name", ""),
+                    "phone_number": getattr(data, "phone_number", ""),
+                    "gender": getattr(data, "gender", "MALE"),
+                    "age": getattr(data, "age", 30),
+                    "persons_count": getattr(data, "persons_count", 1),
+                    "temple_id": getattr(data, "temple_id", None),
+                    "village_id": getattr(data, "village_id", None),
+                    "village_name_custom": getattr(data, "village_name_custom", None),
+                    "purpose_id": getattr(data, "purpose_id", None),
+                    "temple_service": getattr(data, "temple_service", None),
+                    "visitor_date": getattr(data, "visitor_date", None),
+                    "visitor_time": getattr(data, "visitor_time", None),
+                    "notes": getattr(data, "notes", None),
+                    "photo_url": getattr(data, "photo_url", None),
+                    "id_proof_url": getattr(data, "id_proof_url", None),
+                    "latitude": getattr(data, "latitude", None),
+                    "longitude": getattr(data, "longitude", None),
+                    "sync_status": getattr(data, "sync_status", "SYNCED"),
+                    "created_at": getattr(data, "created_at", None),
+                    "updated_at": getattr(data, "updated_at", None),
+                    "purpose": getattr(data, "purpose", None),
+                    "village": getattr(data, "village", None),
+                    "status": info["status"],
+                    "is_auto_closed": info["is_auto_closed"],
+                    "check_in_time": info["check_in_time"],
+                    "check_out_time": info["check_out_time"],
+                    "duration": info["duration"]
+                }
         except Exception:
-            pass
-        return data
+            return data
 
     model_config = ConfigDict(from_attributes=True)
 
