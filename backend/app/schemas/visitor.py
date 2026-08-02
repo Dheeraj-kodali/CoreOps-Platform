@@ -65,20 +65,47 @@ class VisitorUpdate(BaseModel):
     longitude: Optional[float] = None
 
 
+from pydantic import BaseModel, Field, ConfigDict, computed_field
+
 class VisitorResponse(VisitorBase):
     id: str
     visitor_uuid: str
     volunteer_id: str
     sync_status: str
-    status: Optional[str] = "INSIDE"
-    is_auto_closed: Optional[bool] = False
-    check_in_time: Optional[str] = None
-    check_out_time: Optional[str] = None
-    duration: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     purpose: Optional[PurposeResponse] = None
     village: Optional[VillageResponse] = None
+
+    @computed_field
+    @property
+    def status(self) -> str:
+        from app.services.visitor_lifecycle import eval_visitor_lifecycle
+        return eval_visitor_lifecycle(self)["status"]
+
+    @computed_field
+    @property
+    def is_auto_closed(self) -> bool:
+        from app.services.visitor_lifecycle import eval_visitor_lifecycle
+        return eval_visitor_lifecycle(self)["is_auto_closed"]
+
+    @computed_field
+    @property
+    def check_in_time(self) -> str:
+        from app.services.visitor_lifecycle import eval_visitor_lifecycle
+        return eval_visitor_lifecycle(self)["check_in_time"]
+
+    @computed_field
+    @property
+    def check_out_time(self) -> Optional[str]:
+        from app.services.visitor_lifecycle import eval_visitor_lifecycle
+        return eval_visitor_lifecycle(self)["check_out_time"]
+
+    @computed_field
+    @property
+    def duration(self) -> Optional[str]:
+        from app.services.visitor_lifecycle import eval_visitor_lifecycle
+        return eval_visitor_lifecycle(self)["duration"]
 
     model_config = ConfigDict(from_attributes=True)
 
