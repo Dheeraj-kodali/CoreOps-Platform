@@ -171,9 +171,14 @@ async def lifespan(app: FastAPI):
     await seed_initial_data()
     await seed_communication_defaults()
     
-    # Start production background scheduler
+    # Start production background scheduler & Redis Pub/Sub event bus
     global_scheduler.start()
+    from app.core.websocket import websocket_manager
+    await websocket_manager.start_redis_pubsub()
+
     yield
+
+    await websocket_manager.stop_redis_pubsub()
     global_scheduler.stop()
 
 

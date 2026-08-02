@@ -18,6 +18,7 @@ async def websocket_endpoint(websocket: WebSocket):
     - VISITOR_UPDATED
     - VISITOR_DELETED
     """
+    await websocket_manager.start_redis_pubsub()
     await websocket_manager.connect(websocket)
     try:
         # Send initial connection acknowledgment
