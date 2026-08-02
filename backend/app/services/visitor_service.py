@@ -250,11 +250,6 @@ class VisitorService(BaseService[Visitor]):
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
-        from app.services.visitor_lifecycle import eval_visitor_lifecycle
-        info = eval_visitor_lifecycle(updated)
-        updated.status = info["status"]
-        updated.is_auto_closed = info["is_auto_closed"]
-        updated.check_in_time = info["check_in_time"]
-        updated.check_out_time = info["check_out_time"]
-        updated.duration = info["duration"]
+        except Exception:
+            pass
         return updated
