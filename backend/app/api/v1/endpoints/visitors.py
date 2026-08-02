@@ -124,6 +124,10 @@ async def checkout_visitor(
     service: VisitorService = Depends(get_visitor_service),
     current_user: User = Depends(get_current_user),
 ):
-    c_time = payload.checkout_time if payload else None
-    dur = payload.duration if payload else None
-    return await service.checkout_visitor(visitor_id, checkout_time=c_time, duration=dur, current_user=current_user)
+    try:
+        c_time = payload.checkout_time if payload else None
+        dur = payload.duration if payload else None
+        res = await service.checkout_visitor(visitor_id, checkout_time=c_time, duration=dur, current_user=current_user)
+        return VisitorResponse.model_validate(res)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Checkout error: {str(e)}")
