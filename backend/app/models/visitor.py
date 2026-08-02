@@ -38,3 +38,28 @@ class Visitor(BaseModel):
     purpose = relationship("Purpose", back_populates="visitors")
     volunteer = relationship("User", back_populates="visitors_registered")
     notifications = relationship("Notification", back_populates="visitor")
+
+    @property
+    def status(self) -> str:
+        from app.services.visitor_lifecycle import eval_visitor_lifecycle
+        return eval_visitor_lifecycle(self)["status"]
+
+    @property
+    def is_auto_closed(self) -> bool:
+        from app.services.visitor_lifecycle import eval_visitor_lifecycle
+        return eval_visitor_lifecycle(self)["is_auto_closed"]
+
+    @property
+    def check_in_time(self) -> str:
+        from app.services.visitor_lifecycle import eval_visitor_lifecycle
+        return eval_visitor_lifecycle(self)["check_in_time"]
+
+    @property
+    def check_out_time(self) -> str:
+        from app.services.visitor_lifecycle import eval_visitor_lifecycle
+        return eval_visitor_lifecycle(self)["check_out_time"]
+
+    @property
+    def duration(self) -> str:
+        from app.services.visitor_lifecycle import eval_visitor_lifecycle
+        return eval_visitor_lifecycle(self)["duration"]
