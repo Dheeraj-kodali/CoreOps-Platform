@@ -114,11 +114,13 @@ async def delete_visitor(
     await service.delete_visitor(visitor_id, current_user)
 
 
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
+
 @router.put("/{visitor_id}/checkout", response_model=VisitorResponse)
 @router.post("/{visitor_id}/checkout", response_model=VisitorResponse)
 async def checkout_visitor(
     visitor_id: str,
-    payload: Optional[VisitorCheckoutRequest] = None,
+    payload: Optional[VisitorCheckoutRequest] = Body(default=None),
     service: VisitorService = Depends(get_visitor_service),
     current_user: User = Depends(get_current_user),
 ):
