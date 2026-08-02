@@ -1,5 +1,5 @@
 from datetime import date, time, datetime
-from typing import Optional, List
+from typing import Optional, List, Any
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -65,47 +65,44 @@ class VisitorUpdate(BaseModel):
     longitude: Optional[float] = None
 
 
-from pydantic import BaseModel, Field, ConfigDict, computed_field
+from pydantic import BaseModel, Field, ConfigDict, model_validator, computed_field
 
 class VisitorResponse(VisitorBase):
     id: str
     visitor_uuid: str
     volunteer_id: str
     sync_status: str
+    status: str = "INSIDE"
+    is_auto_closed: bool = False
+    check_in_time: Optional[str] = None
+    check_out_time: Optional[str] = None
+    duration: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     purpose: Optional[PurposeResponse] = None
     village: Optional[VillageResponse] = None
 
-    @computed_field
-    @property
-    def status(self) -> str:
-        from app.services.visitor_lifecycle import eval_visitor_lifecycle
-        return eval_visitor_lifecycle(self)["status"]
-
-    @computed_field
-    @property
-    def is_auto_closed(self) -> bool:
-        from app.services.visitor_lifecycle import eval_visitor_lifecycle
-        return eval_visitor_lifecycle(self)["is_auto_closed"]
-
-    @computed_field
-    @property
-    def check_in_time(self) -> str:
-        from app.services.visitor_lifecycle import eval_visitor_lifecycle
-        return eval_visitor_lifecycle(self)["check_in_time"]
-
-    @computed_field
-    @property
-    def check_out_time(self) -> Optional[str]:
-        from app.services.visitor_lifecycle import eval_visitor_lifecycle
-        return eval_visitor_lifecycle(self)["check_out_time"]
-
-    @computed_field
-    @property
-    def duration(self) -> Optional[str]:
-        from app.services.visitor_lifecycle import eval_visitor_lifecycle
-        return eval_visitor_lifecycle(self)["duration"]
+    @model_validator(mode="before")
+    @classmethod
+    def populate_lifecycle_fields(cls, data: Any) -> Any:
+        try:
+            from app.services.visitor_lifecycle import eval_visitor_lifecycle
+            info = eval_visitor_lifecycle(data)
+            if isinstance(data, dict):
+                data["status"] = info["status"]
+                data["is_auto_closed"] = info["is_auto_closed"]
+                data["check_in_time"] = info["check_in_time"]
+                data["check_out_time"] = info["check_out_time"]
+                data["duration"] = info["duration"]
+            else:
+                object.__setattr__(data, "status", info["status"]) if hasattr(data, "__dict__") else setattr(data, "status", info["status"])
+                object.__setattr__(data, "is_auto_closed", info["is_auto_closed"]) if hasattr(data, "__dict__") else setattr(data, "is_auto_closed", info["is_auto_closed"])
+                object.__setattr__(data, "check_in_time", info["check_in_time"]) if hasattr(data, "__dict__") else setattr(data, "check_in_time", info["check_in_time"])
+                object.__setattr__(data, "check_out_time", info["check_out_time"]) if hasattr(data, "__dict__") else setattr(data, "check_out_time", info["check_out_time"])
+                object.__setattr__(data, "duration", info["duration"]) if hasattr(data, "__dict__") else setattr(data, "duration", info["duration"])
+        except Exception:
+            pass
+        return data
 
     model_config = ConfigDict(from_attributes=True)
 
