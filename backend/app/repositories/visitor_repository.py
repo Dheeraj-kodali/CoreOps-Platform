@@ -13,6 +13,15 @@ class VisitorRepository(BaseRepository[Visitor]):
     def __init__(self, session: AsyncSession):
         super().__init__(Visitor, session)
 
+    async def get_by_id(self, visitor_id: str) -> Optional[Visitor]:
+        stmt = (
+            select(Visitor)
+            .options(selectinload(Visitor.purpose), selectinload(Visitor.village))
+            .filter(Visitor.id == visitor_id, Visitor.is_deleted.is_(False))
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
     async def get_by_uuid(self, visitor_uuid: str) -> Optional[Visitor]:
         stmt = (
             select(Visitor)

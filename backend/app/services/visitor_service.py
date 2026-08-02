@@ -99,12 +99,12 @@ class VisitorService(BaseService[Visitor]):
                     "persons_count": synced_visitor.persons_count,
                     "date": str(synced_visitor.visitor_date),
                     "time": str(synced_visitor.visitor_time),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
         except Exception:
             pass
-        return synced_visitor
+        refreshed = await self.visitor_repo.get_by_id(synced_visitor.id)
+        return refreshed or synced_visitor
 
     async def list_visitors(
         self,
@@ -242,9 +242,9 @@ class VisitorService(BaseService[Visitor]):
                     "uuid": updated.visitor_uuid,
                     "name": updated.name,
                     "phone": updated.phone_number,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
         except Exception:
             pass
-        return updated
+        refreshed = await self.visitor_repo.get_by_id(updated.id)
+        return refreshed or updated
