@@ -131,7 +131,9 @@ class VisitorResponse(VisitorBase):
                     "check_out_time": info["check_out_time"],
                     "duration": info["duration"]
                 }
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.getLogger("app.schema").error(f"populate_lifecycle_fields error: {e}")
             return data
 
     model_config = ConfigDict(from_attributes=True)
