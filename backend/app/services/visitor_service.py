@@ -132,14 +132,6 @@ class VisitorService(BaseService[Visitor]):
             page=page,
             limit=limit,
         )
-        from app.services.visitor_lifecycle import eval_visitor_lifecycle
-        for item in items:
-            info = eval_visitor_lifecycle(item)
-            item.status = info["status"]
-            item.is_auto_closed = info["is_auto_closed"]
-            item.check_in_time = info["check_in_time"]
-            item.check_out_time = info["check_out_time"]
-            item.duration = info["duration"]
         pages = ceil(total / limit) if total > 0 else 1
         return items, total, pages
 
@@ -150,13 +142,6 @@ class VisitorService(BaseService[Visitor]):
         visitor = await self.visitor_repo.get_by_id(visitor_id)
         if not visitor or visitor.is_deleted:
             raise AppException(status_code=404, detail="Visitor record not found", error_code="VISITOR_NOT_FOUND")
-        from app.services.visitor_lifecycle import eval_visitor_lifecycle
-        info = eval_visitor_lifecycle(visitor)
-        visitor.status = info["status"]
-        visitor.is_auto_closed = info["is_auto_closed"]
-        visitor.check_in_time = info["check_in_time"]
-        visitor.check_out_time = info["check_out_time"]
-        visitor.duration = info["duration"]
         return visitor
 
     async def update_visitor(self, visitor_id: str, payload: VisitorUpdate, current_user: User) -> Visitor:

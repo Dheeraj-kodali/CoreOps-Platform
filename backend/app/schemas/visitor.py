@@ -89,29 +89,16 @@ class VisitorResponse(VisitorBase):
     @classmethod
     def populate_lifecycle_fields(cls, data: Any) -> Any:
         try:
-            from app.services.visitor_lifecycle import eval_visitor_lifecycle
-            info = eval_visitor_lifecycle(data)
             if isinstance(data, dict):
+                from app.services.visitor_lifecycle import eval_visitor_lifecycle
+                info = eval_visitor_lifecycle(data)
                 data["status"] = info["status"]
                 data["is_auto_closed"] = info["is_auto_closed"]
                 data["check_in_time"] = info["check_in_time"]
                 data["check_out_time"] = info["check_out_time"]
                 data["duration"] = info["duration"]
-            elif hasattr(data, "__dict__"):
-                data.__dict__["status"] = info["status"]
-                data.__dict__["is_auto_closed"] = info["is_auto_closed"]
-                data.__dict__["check_in_time"] = info["check_in_time"]
-                data.__dict__["check_out_time"] = info["check_out_time"]
-                data.__dict__["duration"] = info["duration"]
-            else:
-                setattr(data, "status", info["status"])
-                setattr(data, "is_auto_closed", info["is_auto_closed"])
-                setattr(data, "check_in_time", info["check_in_time"])
-                setattr(data, "check_out_time", info["check_out_time"])
-                setattr(data, "duration", info["duration"])
-        except Exception as e:
-            import logging
-            logging.getLogger("app.schema").error(f"populate_lifecycle_fields error: {e}")
+        except Exception:
+            pass
         return data
 
     model_config = ConfigDict(from_attributes=True)
