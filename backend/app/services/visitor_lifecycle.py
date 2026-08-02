@@ -2,6 +2,19 @@ from datetime import date, datetime, timezone
 import re
 from typing import Dict, Any, Tuple
 
+def _parse_date(val) -> date:
+    if isinstance(val, date) and not isinstance(val, datetime):
+        return val
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, str):
+        try:
+            return datetime.strptime(val[:10], "%Y-%m-%d").date()
+        except Exception:
+            pass
+    return date.today()
+
+
 def eval_visitor_lifecycle(visitor, current_date: date = None) -> Dict[str, Any]:
     """
     Unified Single Source of Truth for Visitor Session Lifecycle and Status Calculation.
@@ -14,9 +27,16 @@ def eval_visitor_lifecycle(visitor, current_date: date = None) -> Dict[str, Any]
     if current_date is None:
         current_date = date.today()
         
-    notes = visitor.notes or ""
-    v_date = visitor.visitor_date if hasattr(visitor, "visitor_date") else current_date
-    
+    if isinstance(visitor, dict):
+        notes = visitor.get("notes") or ""
+        raw_date = visitor.get("visitor_date") or visitor.get("date")
+        raw_time = visitor.get("visitor_time") or visitor.get("time") or "00:00:00"
+    else:
+        notes = getattr(visitor, "notes", "") or ""
+        raw_date = getattr(visitor, "visitor_date", None)
+        raw_time = getattr(visitor, "visitor_time", "00:00:00")
+        
+    v_date = _parse_date(raw_date)
     is_explicit_checkout = (
         "[CHECKED_OUT]" in notes or 
         "CHECKED_OUT" in notes or 
