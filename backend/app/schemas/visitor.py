@@ -37,14 +37,8 @@ class VisitorBase(BaseModel):
     visitor_time: time
     notes: Optional[str] = None
     photo_url: Optional[str] = None
-    id_proof_url: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    status: Optional[str] = "INSIDE"
-    is_auto_closed: Optional[bool] = False
-    check_in_time: Optional[str] = None
-    check_out_time: Optional[str] = None
-    duration: Optional[str] = None
 
 
 class VisitorCreate(VisitorBase):

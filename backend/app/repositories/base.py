@@ -39,7 +39,8 @@ class BaseRepository(Generic[ModelType]):
     async def create(self, obj_in: dict, user_id: Optional[str] = None) -> ModelType:
         if hasattr(self.model, "created_by") and user_id:
             obj_in["created_by"] = user_id
-        clean_obj = {k: v for k, v in obj_in.items() if not k.startswith('_')}
+        excluded_keys = {"status", "is_auto_closed", "check_in_time", "check_out_time", "duration"}
+        clean_obj = {k: v for k, v in obj_in.items() if not k.startswith('_') and k not in excluded_keys}
         db_obj = self.model(**clean_obj)
         self.session.add(db_obj)
         await self.session.flush()
