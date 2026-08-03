@@ -1,3 +1,4 @@
+from typing import Annotated
 from fastapi import APIRouter, Depends, Request, status, HTTPException
 from app.api.deps import get_current_user, get_auth_service
 from app.schemas.token import Token, RefreshTokenRequest, ForgotPasswordRequest, ResetPasswordRequest
@@ -19,7 +20,7 @@ router = APIRouter()
 async def login(
     request_data: LoginRequest,
     req: Request,
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: Annotated[AuthService, Depends(get_auth_service)]
 ):
     client_ip = req.client.host if req.client else "127.0.0.1"
     user_agent = req.headers.get("user-agent", "Unknown")
@@ -34,8 +35,8 @@ async def login(
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 async def logout(
-    current_user: User = Depends(get_current_user),
-    auth_service: AuthService = Depends(get_auth_service)
+    current_user: Annotated[User, Depends(get_current_user)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)]
 ):
     jti = getattr(current_user, "current_jti", None)
     if jti:
@@ -44,7 +45,7 @@ async def logout(
 
 
 @router.post("/refresh", response_model=Token)
-async def refresh_token(payload_data: RefreshTokenRequest, db: AsyncSession = Depends(get_db)):
+async def refresh_token(payload_data: RefreshTokenRequest, db: Annotated[AsyncSession, Depends(get_db)]):
     payload = decode_token(payload_data.refresh_token)
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
@@ -85,7 +86,7 @@ async def refresh_token(payload_data: RefreshTokenRequest, db: AsyncSession = De
 
 
 @router.post("/forgot-password")
-async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+async def forgot_password(data: ForgotPasswordRequest, db: Annotated[AsyncSession, Depends(get_db)]):
     user_repo = UserRepository(db)
     user = await user_repo.get_by_username(data.username_or_email)
     if not user:
@@ -98,7 +99,7 @@ async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depend
 
 
 @router.post("/reset-password")
-async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+async def reset_password(data: ResetPasswordRequest, db: Annotated[AsyncSession, Depends(get_db)]):
     payload = decode_token(data.reset_token)
     if not payload or payload.get("type") != "reset_password":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token")
@@ -120,5 +121,5 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
+async def get_me(current_user: Annotated[User, Depends(get_current_user)]):
     return current_user

@@ -59,25 +59,19 @@ async def get_current_user(
 
 
 def require_permission(permission_code: str) -> Callable:
-    async def permission_checker(current_user: User = Depends(get_current_user)) -> User:
+    def permission_checker(current_user: User = Depends(get_current_user)) -> User:
         user_role_names = [r.name for r in current_user.roles]
-        if "SUPER_ADMIN" in user_role_names:
-            return current_user
-
-        has_perm = False
-        for role in current_user.roles:
-            for perm in role.permissions:
-                if perm.code == permission_code:
-                    has_perm = True
-                    break
-            if has_perm:
-                break
-
-        if not has_perm:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission '{permission_code}' required for this action.",
+        if "SUPER_ADMIN" not in user_role_names:
+            has_perm = any(
+                perm.code == permission_code
+                for role in current_user.roles
+                for perm in role.permissions
             )
+            if not has_perm:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Permission '{permission_code}' required for this action.",
+                )
         return current_user
 
     return permission_checker
@@ -87,7 +81,7 @@ def get_visitor_service(db: AsyncSession = Depends(get_db)) -> VisitorService:
     return VisitorService(db)
 
 
-def get_sync_service(db: AsyncSession = Depends(get_db)) -> SyncSession:
+def get_sync_service(db: AsyncSession = Depends(get_db)) -> SyncService:
     return SyncService(db)
 
 

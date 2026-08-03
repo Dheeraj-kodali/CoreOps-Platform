@@ -2,6 +2,7 @@ import os
 import shutil
 import time
 from datetime import datetime, timezone
+from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -18,7 +19,7 @@ router = APIRouter()
 
 
 @router.get("/health")
-async def health_check_v2(db: AsyncSession = Depends(get_db)):
+async def health_check_v2(db: Annotated[AsyncSession, Depends(get_db)]):
     """Aggregated production health status endpoint."""
     return {
         "status": "HEALTHY",
@@ -31,7 +32,7 @@ async def health_check_v2(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/health/database")
-async def database_health_check(db: AsyncSession = Depends(get_db)):
+async def database_health_check(db: Annotated[AsyncSession, Depends(get_db)]):
     """Granular database health check measuring latency, journal mode, and row counts."""
     start_time = time.time()
     await db.execute(text("SELECT 1"))
@@ -52,7 +53,7 @@ async def database_health_check(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/health/sync")
-async def sync_health_check(db: AsyncSession = Depends(get_db)):
+async def sync_health_check(db: Annotated[AsyncSession, Depends(get_db)]):
     """Granular synchronization engine health check."""
     q_pending = select(func.count(SyncQueue.id)).filter(SyncQueue.status == "PENDING")
     res_pending = await db.execute(q_pending)
@@ -71,7 +72,7 @@ async def sync_health_check(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/health/broadcast")
-async def broadcast_health_check(db: AsyncSession = Depends(get_db)):
+async def broadcast_health_check(db: Annotated[AsyncSession, Depends(get_db)]):
     """Granular enterprise broadcast engine health check."""
     q_active = select(func.count(BroadcastCampaign.campaign_id)).filter(
         BroadcastCampaign.status.in_(["QUEUED", "SENDING"])

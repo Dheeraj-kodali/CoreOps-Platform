@@ -1,4 +1,4 @@
-from typing import List
+from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -12,8 +12,8 @@ router = APIRouter()
 
 @router.get("/", response_model=List[PermissionResponse])
 async def list_permissions(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     stmt = select(Permission).filter(Permission.is_deleted.is_(False))
     result = await db.execute(stmt)
@@ -23,8 +23,8 @@ async def list_permissions(
 @router.post("/", response_model=PermissionResponse, status_code=status.HTTP_201_CREATED)
 async def create_permission(
     payload: PermissionCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("roles:manage")),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_permission("roles:manage"))],
 ):
     stmt = select(Permission).filter(Permission.code == payload.code, Permission.is_deleted.is_(False))
     res = await db.execute(stmt)
@@ -41,8 +41,8 @@ async def create_permission(
 @router.delete("/{permission_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_permission(
     permission_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("roles:manage")),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_permission("roles:manage"))],
 ):
     stmt = select(Permission).filter(Permission.id == permission_id, not Permission.is_deleted)
     res = await db.execute(stmt)

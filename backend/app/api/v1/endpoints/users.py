@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Annotated, List, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +13,9 @@ from app.schemas.user import UserCreate, UserUpdate, UserResponse
 
 router = APIRouter()
 
+USER_NOT_FOUND = "User not found"
+PERM_USERS_MANAGE = "users:manage"
+
 
 class RoleAssignmentRequest(BaseModel):
     role_ids: List[str]
@@ -20,11 +23,11 @@ class RoleAssignmentRequest(BaseModel):
 
 @router.get("/", response_model=List[UserResponse])
 async def list_users(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_permission("users:read"))],
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
     role_name: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("users:read")),
 ):
     stmt = (
         select(User)
@@ -42,8 +45,8 @@ async def list_users(
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     payload: UserCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("users:create")),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_permission("users:create"))],
 ):
     user_repo = UserRepository(db)
     existing_username = await user_repo.get_by_username(payload.username)
@@ -75,13 +78,13 @@ async def create_user(
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id_with_relations(user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=USER_NOT_FOUND)
     return user
 
 
@@ -89,13 +92,13 @@ async def get_user(
 async def update_user(
     user_id: str,
     payload: UserUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("users:manage")),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_permission(PERM_USERS_MANAGE))],
 ):
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id_with_relations(user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=USER_NOT_FOUND)
 
     update_dict = payload.model_dump(exclude_unset=True, exclude={"role_ids", "password"})
     if payload.password:
@@ -117,13 +120,13 @@ async def update_user(
 async def assign_user_role(
     user_id: str,
     payload: RoleAssignmentRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("users:manage")),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_permission(PERM_USERS_MANAGE))],
 ):
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id_with_relations(user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=USER_NOT_FOUND)
 
     await user_repo.assign_roles(user.id, payload.role_ids)
     await db.commit()
@@ -133,11 +136,11 @@ async def assign_user_role(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("users:manage")),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_permission(PERM_USERS_MANAGE))],
 ):
     user_repo = UserRepository(db)
     success = await user_repo.soft_delete(user_id, user_id=current_user.id)
     if not success:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=USER_NOT_FOUND)
     await db.commit()

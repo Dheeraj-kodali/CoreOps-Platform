@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.visitor import Visitor
+from app.models.visit_session import VisitSession
 from app.models.purpose import Purpose
 from app.models.sync import SyncQueue
 from app.schemas.analytics import (
@@ -63,26 +64,48 @@ async def get_admin_dashboard(
 ):
     today = date.today()
     
-    # 1. Total visitors today
+    # 1. Total visitors today (check VisitSession first, fallback to Visitor)
+    vs_res = await db.execute(
+        select(func.coalesce(func.sum(VisitSession.persons_count), 0)).filter(
+            VisitSession.visit_date == today, VisitSession.is_deleted.is_(False)
+        )
+    )
+    vs_count = vs_res.scalar_one()
+
     today_v_res = await db.execute(
         select(func.coalesce(func.sum(Visitor.persons_count), 0)).filter(
             Visitor.visitor_date == today, Visitor.is_deleted.is_(False)
         )
     )
-    todays_visitors = today_v_res.scalar_one()
+    v_count = today_v_res.scalar_one()
+    todays_visitors = vs_count if vs_count > 0 else v_count
 
     # Total check-in records today
-    checkins_res = await db.execute(
+    vs_checkins = await db.execute(
+        select(func.count(VisitSession.id)).filter(
+            VisitSession.visit_date == today, VisitSession.is_deleted.is_(False)
+        )
+    )
+    v_checkins = await db.execute(
         select(func.count(Visitor.id)).filter(
             Visitor.visitor_date == today, Visitor.is_deleted.is_(False)
         )
     )
-    todays_check_ins = checkins_res.scalar_one()
+    todays_check_ins = vs_checkins.scalar_one() or v_checkins.scalar_one()
 
     display_visitors = todays_visitors
     display_checkins = todays_check_ins
 
-    # Total check-outs for today (sum persons_count for visitors with CHECKED_OUT in notes)
+    # Total check-outs for today (check VisitSession status == CHECKED_OUT first, fallback to Visitor notes)
+    vs_checkouts_res = await db.execute(
+        select(func.coalesce(func.sum(VisitSession.persons_count), 0)).filter(
+            VisitSession.visit_date == today,
+            VisitSession.status == "CHECKED_OUT",
+            VisitSession.is_deleted.is_(False),
+        )
+    )
+    vs_checkouts = vs_checkouts_res.scalar_one()
+
     checkouts_res = await db.execute(
         select(func.coalesce(func.sum(Visitor.persons_count), 0)).filter(
             Visitor.visitor_date == today,
@@ -94,7 +117,8 @@ async def get_admin_dashboard(
             )
         )
     )
-    todays_check_outs = checkouts_res.scalar_one()
+    v_checkouts = checkouts_res.scalar_one()
+    todays_check_outs = vs_checkouts if vs_checkouts > 0 else v_checkouts
 
     # Real calculation of visitors inside premise today
     visitors_inside = max(0, display_visitors - todays_check_outs)

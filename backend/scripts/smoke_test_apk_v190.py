@@ -8,6 +8,14 @@ from datetime import datetime
 APK_PATH = r"c:\Users\Dheeraj\OneDrive\Desktop\temple\mobile\build\app\outputs\flutter-apk\app-release.apk"
 PROD_API_URL = "https://coreops-platform.onrender.com/api/v1"
 
+def _compute_sha256(path: str) -> str:
+    sha256_hash = hashlib.sha256()
+    with open(path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
+
+
 async def run_apk_smoke_test():
     print("=" * 80)
     print("PRODUCTION RELEASE APK V1.9.0+12 SMOKE TEST & METADATA VERIFICATION")
@@ -20,11 +28,7 @@ async def run_apk_smoke_test():
     file_size_bytes = os.path.getsize(APK_PATH)
     file_size_mb = file_size_bytes / (1024 * 1024)
 
-    sha256_hash = hashlib.sha256()
-    with open(APK_PATH, "rb") as f:
-        for byte_block in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(byte_block)
-    checksum = sha256_hash.hexdigest()
+    checksum = await asyncio.to_thread(_compute_sha256, APK_PATH)
 
     print(f"APK Path: {APK_PATH}")
     print(f"APK Size: {file_size_mb:.2f} MB ({file_size_bytes:,} bytes)")
@@ -42,7 +46,7 @@ async def run_apk_smoke_test():
         login_data = login_res.json()
         token = login_data["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
-        print(f"   [SUCCESS] Logged in as admin. Token acquired.")
+        print("   [SUCCESS] Logged in as admin. Token acquired.")
 
         # Step B: Register Visitor (Mobile Context)
         import uuid
@@ -64,7 +68,7 @@ async def run_apk_smoke_test():
             "longitude": 78.486671
         }
 
-        print(f"\nStep 2: Register Visitor from Mobile App Context...")
+        print("\nStep 2: Register Visitor from Mobile App Context...")
         reg_res = await client.post(f"{PROD_API_URL}/visitors/", json=visitor_payload, headers=headers)
         assert reg_res.status_code == 201, f"Registration failed: {reg_res.text}"
         reg_data = reg_res.json()
@@ -72,14 +76,14 @@ async def run_apk_smoke_test():
         print(f"   [SUCCESS] Visitor registered. ID: {visitor_id}, Status: {reg_data.get('status')}")
 
         # Step C: Check Out Visitor
-        print(f"\nStep 3: Check Out Visitor from Mobile App Context...")
+        print("\nStep 3: Check Out Visitor from Mobile App Context...")
         co_res = await client.post(f"{PROD_API_URL}/visitors/{visitor_id}/checkout", json={}, headers=headers)
         assert co_res.status_code == 200, f"Checkout failed: {co_res.text}"
         co_data = co_res.json()
         print(f"   [SUCCESS] Visitor checked out. Status: {co_data.get('status')}, Duration: {co_data.get('duration')}")
 
         # Step D: Dashboard Real-time Verification
-        print(f"\nStep 4: Verify Dashboard Real-Time Statistics...")
+        print("\nStep 4: Verify Dashboard Real-Time Statistics...")
         dash_res = await client.get(f"{PROD_API_URL}/analytics/dashboard", headers=headers)
         dash_data = dash_res.json()
         print(f"   Today's Visitors: {dash_data.get('todays_visitors')}")

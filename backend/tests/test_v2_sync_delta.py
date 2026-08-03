@@ -14,6 +14,7 @@ from app.core.config import settings
 settings.DATABASE_URL = "sqlite+aiosqlite:///./test_temple.db"
 settings.SYNC_DATABASE_URL = "sqlite:///./test_temple.db"
 
+import app.models
 from httpx import AsyncClient, ASGITransport
 from app.main import app, seed_initial_data
 from app.core.database import engine, Base, AsyncSessionLocal

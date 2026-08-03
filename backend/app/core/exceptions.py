@@ -108,7 +108,7 @@ class CampaignDeletionRestrictedException(AppException):
         )
 
 
-async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
+def app_exception_handler(_request: Request, exc: AppException) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
         content={

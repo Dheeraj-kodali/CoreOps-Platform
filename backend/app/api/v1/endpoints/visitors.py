@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Optional, List
+from typing import Annotated, Optional, List
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Query, status, HTTPException, Body
 
@@ -26,9 +26,9 @@ class VisitorCheckoutRequest(BaseModel):
 
 @router.get("/lookup-phone", response_model=PhoneLookupResponse)
 async def lookup_phone(
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
     phone_number: str = Query(..., min_length=5, max_length=20),
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(get_current_user),
 ):
     """
     Search Visitor Profile by Phone Number for Reception Auto-Fill Flow.
@@ -40,8 +40,8 @@ async def lookup_phone(
 @router.post("/", response_model=VisitorResponse, status_code=status.HTTP_201_CREATED)
 async def create_visitor(
     payload: VisitSessionCreate,
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(get_current_user),
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     """
     Visitor Entry Flow:
@@ -49,46 +49,15 @@ async def create_visitor(
     - If profile does NOT exist: creates Visitor Profile + first Visit Session.
     """
     session_record = await service.register_visitor(payload, current_user)
-    
-    # Map to VisitorResponse for UI compatibility
-    prof = session_record.visitor_profile
-    return VisitorResponse(
-        id=session_record.id,
-        visitor_uuid=session_record.id,
-        name=prof.name if prof else "Visitor",
-        phone_number=prof.phone_number if prof else "",
-        gender=prof.gender if prof else "MALE",
-        age=prof.age if prof else 30,
-        persons_count=session_record.persons_count,
-        temple_id=session_record.temple_id,
-        village_id=prof.village_id if prof else None,
-        village_name_custom=prof.village_name_custom if prof else None,
-        purpose_id=session_record.purpose_id,
-        visitor_date=session_record.visit_date,
-        visitor_time=session_record.check_in_time,
-        volunteer_id=session_record.volunteer_id,
-        notes=session_record.notes,
-        latitude=session_record.latitude,
-        longitude=session_record.longitude,
-        sync_status=session_record.sync_status,
-        status=session_record.status,
-        is_auto_closed=session_record.is_auto_closed,
-        check_in_time=str(session_record.check_in_time),
-        check_out_time=str(session_record.check_out_time) if session_record.check_out_time else None,
-        duration=session_record.duration,
-        created_at=session_record.created_at,
-        updated_at=session_record.updated_at,
-        purpose=session_record.purpose,
-        village=prof.village if prof else None,
-    )
+    return _map_session_to_visitor_response(session_record)
 
 
 @router.put("/profiles/{profile_id}", response_model=VisitorProfileResponse)
 async def update_visitor_profile(
     profile_id: str,
     payload: VisitorProfileUpdate,
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(get_current_user),
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     """
     Edit Profile Functionality:
@@ -131,8 +100,10 @@ def _map_session_to_visitor_response(session_record) -> VisitorResponse:
     )
 
 
-@router.get("/", response_model=VisitorListResponse)
+@router.get("/", response_model=VisitorListResponse, responses={500: {"description": "Internal Server Error"}})
 async def list_visitors(
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
     search: Optional[str] = None,
     purpose_id: Optional[str] = None,
     village_id: Optional[str] = None,
@@ -142,8 +113,6 @@ async def list_visitors(
     status_filter: Optional[str] = Query(default=None, alias="status"),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(get_current_user),
 ):
     """
     List Visit Sessions with filtering by Date Range, Status (INSIDE, CHECKED_OUT, AUTO_CLOSED), Purpose, Volunteer, and Search.
@@ -165,33 +134,16 @@ async def list_visitors(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"List visitors error: {str(e)}")
 
-        visitor_time=session_record.check_in_time,
-        volunteer_id=session_record.volunteer_id,
-        notes=session_record.notes,
-        latitude=session_record.latitude,
-        longitude=session_record.longitude,
-        sync_status=session_record.sync_status,
-        status=session_record.status,
-        is_auto_closed=session_record.is_auto_closed,
-        check_in_time=str(session_record.check_in_time),
-        check_out_time=str(session_record.check_out_time) if session_record.check_out_time else None,
-        duration=session_record.duration,
-        created_at=session_record.created_at,
-        updated_at=session_record.updated_at,
-        purpose=session_record.purpose,
-        village=prof.village if prof else None,
-    )
-
 
 @router.get("/ledgers", response_model=DailyLedgerListResponse)
 async def list_daily_ledgers(
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     search: Optional[str] = None,
     status_filter: Optional[str] = Query(default=None, alias="status"),
     limit: int = Query(default=20, ge=1, le=100),
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(get_current_user),
 ):
     """
     Daily Visit Ledger Endpoint:
@@ -230,8 +182,8 @@ async def list_daily_ledgers(
 
 @router.get("/ledgers/today", response_model=DailyLedgerResponse)
 async def get_today_ledger(
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(get_current_user),
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     """
     Today's Daily Visit Ledger:
@@ -250,8 +202,8 @@ async def get_today_ledger(
 @router.get("/ledgers/{visit_date}", response_model=DailyLedgerResponse)
 async def get_daily_ledger_by_date(
     visit_date: date,
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(get_current_user),
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     """
     Get Daily Visit Ledger by specific date { date, summary, sessions }.
@@ -266,14 +218,13 @@ async def get_daily_ledger_by_date(
     )
 
 
-
 @router.get("/check-duplicate")
 async def check_duplicate(
     name: str,
     phone_number: str,
     visitor_date: date,
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(get_current_user),
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     duplicate = await service.visitor_repo.check_duplicate(name=name, phone_number=phone_number, visitor_date=visitor_date)
     return {"is_duplicate": duplicate is not None, "existing_record": duplicate}
@@ -282,8 +233,8 @@ async def check_duplicate(
 @router.post("/bulk-delete", status_code=status.HTTP_200_OK)
 async def bulk_delete_visitors(
     payload: BulkDeleteRequest,
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(require_permission("visitors:delete")),
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(require_permission("visitors:delete"))],
 ):
     deleted_count = 0
     for v_id in payload.visitor_ids:
@@ -298,132 +249,45 @@ async def bulk_delete_visitors(
 @router.get("/{visitor_id}", response_model=VisitorResponse)
 async def get_visitor(
     visitor_id: str,
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(get_current_user),
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     session_record = await service.get_session_by_id(visitor_id)
-    prof = session_record.visitor_profile
-    return VisitorResponse(
-        id=session_record.id,
-        visitor_uuid=session_record.id,
-        name=prof.name if prof else "Visitor",
-        phone_number=prof.phone_number if prof else "",
-        gender=prof.gender if prof else "MALE",
-        age=prof.age if prof else 30,
-        persons_count=session_record.persons_count,
-        temple_id=session_record.temple_id,
-        village_id=prof.village_id if prof else None,
-        village_name_custom=prof.village_name_custom if prof else None,
-        purpose_id=session_record.purpose_id,
-        visitor_date=session_record.visit_date,
-        visitor_time=session_record.check_in_time,
-        volunteer_id=session_record.volunteer_id,
-        notes=session_record.notes,
-        latitude=session_record.latitude,
-        longitude=session_record.longitude,
-        sync_status=session_record.sync_status,
-        status=session_record.status,
-        is_auto_closed=session_record.is_auto_closed,
-        check_in_time=str(session_record.check_in_time),
-        check_out_time=str(session_record.check_out_time) if session_record.check_out_time else None,
-        duration=session_record.duration,
-        created_at=session_record.created_at,
-        updated_at=session_record.updated_at,
-        purpose=session_record.purpose,
-        village=prof.village if prof else None,
-    )
+    return _map_session_to_visitor_response(session_record)
 
 
 @router.put("/{visitor_id}", response_model=VisitorResponse)
 async def update_visitor(
     visitor_id: str,
     payload: VisitorUpdate,
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(get_current_user),
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     session_record = await service.update_visitor(visitor_id, payload, current_user)
-    prof = session_record.visitor_profile
-    return VisitorResponse(
-        id=session_record.id,
-        visitor_uuid=session_record.id,
-        name=prof.name if prof else "Visitor",
-        phone_number=prof.phone_number if prof else "",
-        gender=prof.gender if prof else "MALE",
-        age=prof.age if prof else 30,
-        persons_count=session_record.persons_count,
-        temple_id=session_record.temple_id,
-        village_id=prof.village_id if prof else None,
-        village_name_custom=prof.village_name_custom if prof else None,
-        purpose_id=session_record.purpose_id,
-        visitor_date=session_record.visit_date,
-        visitor_time=session_record.check_in_time,
-        volunteer_id=session_record.volunteer_id,
-        notes=session_record.notes,
-        latitude=session_record.latitude,
-        longitude=session_record.longitude,
-        sync_status=session_record.sync_status,
-        status=session_record.status,
-        is_auto_closed=session_record.is_auto_closed,
-        check_in_time=str(session_record.check_in_time),
-        check_out_time=str(session_record.check_out_time) if session_record.check_out_time else None,
-        duration=session_record.duration,
-        created_at=session_record.created_at,
-        updated_at=session_record.updated_at,
-        purpose=session_record.purpose,
-        village=prof.village if prof else None,
-    )
+    return _map_session_to_visitor_response(session_record)
 
 
 @router.delete("/{visitor_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_visitor(
     visitor_id: str,
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(require_permission("visitors:delete")),
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(require_permission("visitors:delete"))],
 ):
     await service.delete_session(visitor_id, current_user)
 
 
-@router.put("/{visitor_id}/checkout", response_model=VisitorResponse)
-@router.post("/{visitor_id}/checkout", response_model=VisitorResponse)
+@router.put("/{visitor_id}/checkout", response_model=VisitorResponse, responses={500: {"description": "Internal Server Error"}})
+@router.post("/{visitor_id}/checkout", response_model=VisitorResponse, responses={500: {"description": "Internal Server Error"}})
 async def checkout_visitor(
     visitor_id: str,
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
     payload: Optional[VisitorCheckoutRequest] = Body(default=None),
-    service: VisitorService = Depends(get_visitor_service),
-    current_user: User = Depends(get_current_user),
 ):
     try:
         c_time = payload.checkout_time if payload else None
         dur = payload.duration if payload else None
         session_record = await service.checkout_visitor(visitor_id, checkout_time=c_time, duration=dur, current_user=current_user)
-        prof = session_record.visitor_profile
-        return VisitorResponse(
-            id=session_record.id,
-            visitor_uuid=session_record.id,
-            name=prof.name if prof else "Visitor",
-            phone_number=prof.phone_number if prof else "",
-            gender=prof.gender if prof else "MALE",
-            age=prof.age if prof else 30,
-            persons_count=session_record.persons_count,
-            temple_id=session_record.temple_id,
-            village_id=prof.village_id if prof else None,
-            village_name_custom=prof.village_name_custom if prof else None,
-            purpose_id=session_record.purpose_id,
-            visitor_date=session_record.visit_date,
-            visitor_time=session_record.check_in_time,
-            volunteer_id=session_record.volunteer_id,
-            notes=session_record.notes,
-            latitude=session_record.latitude,
-            longitude=session_record.longitude,
-            sync_status=session_record.sync_status,
-            status=session_record.status,
-            is_auto_closed=session_record.is_auto_closed,
-            check_in_time=str(session_record.check_in_time),
-            check_out_time=str(session_record.check_out_time) if session_record.check_out_time else None,
-            duration=session_record.duration,
-            created_at=session_record.created_at,
-            updated_at=session_record.updated_at,
-            purpose=session_record.purpose,
-            village=prof.village if prof else None,
-        )
+        return _map_session_to_visitor_response(session_record)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Checkout error: {str(e)}")

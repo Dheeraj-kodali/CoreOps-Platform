@@ -1,4 +1,4 @@
-from typing import List
+from typing import Annotated, List
 from math import ceil
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,8 +18,8 @@ router = APIRouter()
 
 @router.get("/templates", response_model=List[NotificationTemplateResponse])
 async def list_templates(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     stmt = select(NotificationTemplate)
     result = await db.execute(stmt)
@@ -28,10 +28,10 @@ async def list_templates(
 
 @router.get("/logs", response_model=NotificationLogListResponse)
 async def list_logs(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     stmt = select(NotificationLog).order_by(NotificationLog.created_at.desc())
     count_stmt = select(func.count(NotificationLog.id))
@@ -52,19 +52,20 @@ async def list_logs(
 @router.post("/logs/{log_id}/retry")
 async def retry_notification(
     log_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("notifications:manage")),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_permission("notifications:manage"))],
 ):
     stmt = select(NotificationLog).filter(NotificationLog.id == log_id)
     res = await db.execute(stmt)
     log_entry = res.scalars().first()
 
     if not log_entry:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Log entry not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification log not found")
 
     log_entry.status = "PENDING"
-    log_entry.retry_count += 1
+    log_entry.retry_count = (log_entry.retry_count or 0) + 1
+    db.add(log_entry)
     await db.commit()
 
     # In production, dispatch task to Celery queue here
-    return {"message": "Notification retry queued successfully", "log_id": log_id}
+    return {"message": "Notification queued for retry", "status": "PENDING", "log_id": log_id}

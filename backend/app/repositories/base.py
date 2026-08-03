@@ -60,13 +60,12 @@ class BaseRepository(Generic[ModelType]):
 
     async def soft_delete(self, id: Any, user_id: Optional[str] = None) -> bool:
         db_obj = await self.get_by_id(id)
-        if db_obj:
-            if hasattr(db_obj, "is_deleted"):
-                setattr(db_obj, "is_deleted", True)
-                setattr(db_obj, "deleted_at", datetime.now(timezone.utc))
-                if user_id and hasattr(db_obj, "updated_by"):
-                    setattr(db_obj, "updated_by", user_id)
-                self.session.add(db_obj)
-                await self.session.flush()
-                return True
+        if db_obj and hasattr(db_obj, "is_deleted"):
+            setattr(db_obj, "is_deleted", True)
+            setattr(db_obj, "deleted_at", datetime.now(timezone.utc))
+            if user_id and hasattr(db_obj, "updated_by"):
+                setattr(db_obj, "updated_by", user_id)
+            self.session.add(db_obj)
+            await self.session.flush()
+            return True
         return False

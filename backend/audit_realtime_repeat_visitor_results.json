@@ -1,6 +1,6 @@
 {
   "part1_repeat_visitor_workflow": {
-    "test_phone": "+919880716214",
+    "test_phone": "+919883698892",
     "visitor_profiles_created": 1,
     "visit_sessions_created": 2,
     "profile_autofilled": true,
@@ -10,9 +10,9 @@
     "sql_evidence": "VisitorProfile count = 1 (Exactly 1), VisitSession count = 2 (Exactly 2)"
   },
   "part2_realtime_sync_instrumentation": {
-    "t1_event_iso": "2026-08-02T17:11:56.636275+00:00",
-    "backend_service_latency_ms": 57.62,
-    "redis_ws_broadcast_latency_ms": 0.06,
+    "t1_event_iso": "2026-08-02T18:01:39.216886+00:00",
+    "backend_service_latency_ms": 35.58,
+    "redis_ws_broadcast_latency_ms": 0.03,
     "stage_failures": {
       "stage1_client_event": "SUCCESS",
       "stage2_backend_controller": "SUCCESS",

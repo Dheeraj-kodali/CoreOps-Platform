@@ -313,6 +313,22 @@ class DeltaSyncServiceV2:
                         existing_session.check_out_time = datetime.now().time()
                     existing_session.status = "CHECKED_OUT"
                 else:
+                    client_dt = datetime.fromisoformat(event.client_timestamp.replace("Z", "+00:00"))
+                    existing_dt = existing_session.updated_at
+                    if existing_dt:
+                        if existing_dt.tzinfo is None:
+                            existing_dt = existing_dt.replace(tzinfo=timezone.utc)
+                        if client_dt < existing_dt:
+                            queue_record.status = "CONFLICT"
+                            return SyncItemResponse(
+                                event_id=event.event_id,
+                                entity_id=event.entity_id,
+                                status="CONFLICT",
+                                retryable=False,
+                                error_message="Stale update rejected by Last-Write-Wins (LWW) policy",
+                                server_synced_at=now_iso
+                            ), "CONFLICT"
+
                     if "notes" in p:
                         existing_session.notes = p["notes"]
 

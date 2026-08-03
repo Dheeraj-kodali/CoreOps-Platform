@@ -8,6 +8,7 @@ os.environ["SYNC_DATABASE_URL"] = "sqlite:///./test_temple.db"
 
 from app.core.config import Settings, settings
 from app.core.database import engine, Base, get_db
+import app.models
 from app.main import app, seed_initial_data
 
 

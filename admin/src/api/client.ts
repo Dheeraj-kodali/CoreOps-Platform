@@ -42,7 +42,8 @@ apiClient.interceptors.response.use(
               originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
               return apiClient(originalRequest);
             }
-          } catch (_) {
+          } catch (refreshErr) {
+            console.error('Failed to refresh authentication token:', refreshErr);
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
             localStorage.removeItem('user_info');
@@ -51,6 +52,6 @@ apiClient.interceptors.response.use(
         }
       }
     }
-    return Promise.reject(error);
+    throw error;
   }
 );

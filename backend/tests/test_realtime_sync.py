@@ -1,84 +1,55 @@
+import os
 import pytest
 import pytest_asyncio
-from fastapi.testclient import TestClient
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from datetime import datetime, timedelta, timezone
 
-from app.main import app
-from app.core.database import Base, get_db
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_temple.db"
+os.environ["SYNC_DATABASE_URL"] = "sqlite:///./test_temple.db"
+
+from app.core.config import settings
+settings.DATABASE_URL = "sqlite+aiosqlite:///./test_temple.db"
+settings.SYNC_DATABASE_URL = "sqlite:///./test_temple.db"
+
+from sqlalchemy.future import select
+from httpx import AsyncClient, ASGITransport
+import app.models
+from app.main import app, seed_initial_data
+from app.core.database import engine, Base, AsyncSessionLocal
 from app.core.websocket import websocket_manager
 from app.models.user import User, Role, UserRole
 from app.models.visitor import Visitor
 from app.models.purpose import Purpose
 from app.models.temple import Temple
+from app.models.session import Session as UserSession
 from app.core.security import get_password_hash, create_access_token
-
-
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
-
-test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-TestingSessionLocal = async_sessionmaker(bind=test_engine, class_=AsyncSession, expire_on_commit=False)
-
-
-async def override_get_db():
-    async with TestingSessionLocal() as session:
-        yield session
-
-
-app.dependency_overrides[get_db] = override_get_db
 
 
 @pytest_asyncio.fixture(autouse=True)
 async def prepare_database():
-    async with test_engine.begin() as conn:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-    
-    # Seed initial test data
-    async with TestingSessionLocal() as session:
-        temple = Temple(id="SKSA_MAIN", name="Test Temple", code="SKSA_MAIN", address="Test Address")
-        session.add(temple)
+    await seed_initial_data()
 
-        purpose = Purpose(id="3ef2daff-d716-4285-ac7c-81e702530b44", temple_id="SKSA_MAIN", name_en="General Darshan", name_te="దర్శనం", code="DARSHAN")
-        session.add(purpose)
+    async with AsyncSessionLocal() as session:
+        u_res = await session.execute(select(User).filter(User.username == "admin"))
+        admin_user = u_res.scalars().first()
 
-        admin_role = Role(id="role_admin", name="SUPER_ADMIN", description="Admin")
-        session.add(admin_role)
-
-        admin_user = User(
-            id="user_admin",
-            username="admin",
-            email="admin@test.com",
-            password_hash=get_password_hash("Admin@12345"),
-            full_name="Test Admin",
-            is_active=True
-        )
-        session.add(admin_user)
-        await session.commit()
-
-        user_role = UserRole(user_id=admin_user.id, role_id=admin_role.id)
-        session.add(user_role)
-        await session.commit()
-
-        # Add active session
-        from app.models.session import Session as UserSession
-        from datetime import datetime, timedelta, timezone
-        token, jti = create_access_token("user_admin")
-        sess = UserSession(
-            user_id="user_admin",
-            token_jti=jti,
-            is_revoked=False,
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=1)
-        )
-        session.add(sess)
-        await session.commit()
-
-        # Save token for tests
+        jti = f"test_jti_{admin_user.id}"
+        token, _ = create_access_token(subject=admin_user.id, jti=jti)
         app.state.test_token = token
 
-    yield
+        active_sess = UserSession(
+            user_id=admin_user.id,
+            token_jti=jti,
+            refresh_token=f"ref_{jti}",
+            is_revoked=False,
+            expires_at=datetime.now(timezone.utc) + timedelta(days=1)
+        )
+        session.add(active_sess)
+        await session.commit()
 
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    yield
 
 
 @pytest.mark.asyncio

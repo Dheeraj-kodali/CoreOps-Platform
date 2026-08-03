@@ -1,7 +1,7 @@
 import csv
 import io
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,17 +20,139 @@ from app.repositories.visitor_repository import VisitorRepository
 
 router = APIRouter()
 
+REPORT_HEADERS = [
+    "Session ID", "Visitor ID", "Name", "Phone", "Visit Date", "Check-in", "Check-out",
+    "Duration", "Persons Count", "Purpose", "Volunteer", "GPS Lat", "GPS Long", "Status", "AUTO_CLOSED Flag"
+]
+
+
+def _get_checkout_time_str(s: VisitSession) -> str:
+    if s.check_out_time:
+        return str(s.check_out_time)
+    if s.is_auto_closed:
+        return "23:59:59"
+    return "N/A"
+
+
+def _format_session_row(s: VisitSession) -> list:
+    prof = s.visitor_profile
+    v_id = prof.visitor_id if prof else ""
+    v_name = prof.name if prof else "Visitor"
+    v_phone = prof.phone_number if prof else ""
+    p_name = s.purpose.name_en if s.purpose else "General Darshan"
+    vol_name = s.volunteer.username if s.volunteer else (s.volunteer_id or "")
+
+    return [
+        s.id,
+        v_id,
+        v_name,
+        v_phone,
+        str(s.visit_date),
+        str(s.check_in_time),
+        _get_checkout_time_str(s),
+        s.duration,
+        s.persons_count,
+        p_name,
+        vol_name,
+        s.latitude or "N/A",
+        s.longitude or "N/A",
+        s.status,
+        "YES" if s.is_auto_closed else "NO",
+    ]
+
+
+def _export_csv(sessions: list) -> StreamingResponse:
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(REPORT_HEADERS)
+
+    for s in sessions:
+        writer.writerow(_format_session_row(s))
+
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode("utf-8")),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=visitor_sessions_report_{date.today()}.csv"},
+    )
+
+
+def _export_excel(sessions: list) -> StreamingResponse:
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Visit Sessions Report"
+
+    ws.append(REPORT_HEADERS)
+
+    for s in sessions:
+        ws.append(_format_session_row(s))
+
+    excel_stream = io.BytesIO()
+    wb.save(excel_stream)
+    excel_stream.seek(0)
+
+    return StreamingResponse(
+        excel_stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=visitor_sessions_report_{date.today()}.xlsx"},
+    )
+
+
+def _export_pdf(sessions: list) -> StreamingResponse:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+
+    pdf_stream = io.BytesIO()
+    c = canvas.Canvas(pdf_stream, pagesize=letter)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, 750, "Sri Kalki Seva Alayam - Visit Sessions Report")
+    c.setFont("Helvetica", 12)
+    c.drawString(50, 730, f"Generated Report - {date.today()}")
+    c.line(50, 720, 550, 720)
+
+    y = 690
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(40, y, "Name")
+    c.drawString(160, y, "Phone")
+    c.drawString(250, y, "Visit Date")
+    c.drawString(330, y, "Check-in")
+    c.drawString(400, y, "Status")
+    c.drawString(480, y, "Auto Closed")
+    y -= 20
+    c.setFont("Helvetica", 8)
+
+    for s in sessions[:30]:
+        prof = s.visitor_profile
+        v_name = prof.name[:18] if prof and prof.name else "Visitor"
+        v_phone = prof.phone_number if prof and prof.phone_number else ""
+        c.drawString(40, y, v_name)
+        c.drawString(160, y, v_phone)
+        c.drawString(250, y, str(s.visit_date))
+        c.drawString(330, y, str(s.check_in_time)[:8])
+        c.drawString(400, y, s.status)
+        c.drawString(480, y, "YES" if s.is_auto_closed else "NO")
+        y -= 18
+
+    c.showPage()
+    c.save()
+    pdf_stream.seek(0)
+
+    return StreamingResponse(
+        pdf_stream,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=visitor_sessions_report_{date.today()}.pdf"},
+    )
+
 
 @router.get("/summary")
 async def get_reports_summary(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     today = date.today()
-    start_date = date_from or (today - timedelta(days=30))
-    end_date = date_to or today
 
     # Auto-close past sessions
     visitor_repo = VisitorRepository(db)
@@ -112,11 +234,11 @@ async def get_reports_summary(
 
 @router.get("/audit-logs")
 async def get_audit_logs(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     action_type: Optional[str] = None,
     user_filter: Optional[str] = None,
     search: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     stmt = select(AuditRecord).order_by(AuditRecord.timestamp.desc()).limit(100)
     res = await db.execute(stmt)
@@ -168,12 +290,12 @@ async def get_audit_logs(
 
 @router.get("/export")
 async def export_reports(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     export_format: str = Query(..., alias="format", pattern="^(csv|excel|pdf)$"),
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     purpose_id: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """
     Generate reports from Visit Sessions.
@@ -188,132 +310,7 @@ async def export_reports(
     )
 
     if export_format == "csv":
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow([
-            "Session ID", "Visitor ID", "Name", "Phone", "Visit Date", "Check-in", "Check-out",
-            "Duration", "Persons Count", "Purpose", "Volunteer", "GPS Lat", "GPS Long", "Status", "AUTO_CLOSED Flag"
-        ])
-
-        for s in sessions:
-            prof = s.visitor_profile
-            v_id = prof.visitor_id if prof else ""
-            v_name = prof.name if prof else "Visitor"
-            v_phone = prof.phone_number if prof else ""
-            p_name = s.purpose.name_en if s.purpose else "General Darshan"
-            vol_name = s.volunteer.username if s.volunteer else s.volunteer_id
-
-            writer.writerow([
-                s.id,
-                v_id,
-                v_name,
-                v_phone,
-                str(s.visit_date),
-                str(s.check_in_time),
-                str(s.check_out_time) if s.check_out_time else ("23:59:59" if s.is_auto_closed else "N/A"),
-                s.duration,
-                s.persons_count,
-                p_name,
-                vol_name,
-                s.latitude or "N/A",
-                s.longitude or "N/A",
-                s.status,
-                "YES" if s.is_auto_closed else "NO",
-            ])
-
-        output.seek(0)
-        return StreamingResponse(
-            io.BytesIO(output.getvalue().encode("utf-8")),
-            media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=visitor_sessions_report_{date.today()}.csv"},
-        )
-
-    elif export_format == "excel":
-        import openpyxl
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Visit Sessions Report"
-
-        ws.append([
-            "Session ID", "Visitor ID", "Name", "Phone", "Visit Date", "Check-in", "Check-out",
-            "Duration", "Persons Count", "Purpose", "Volunteer", "GPS Lat", "GPS Long", "Status", "AUTO_CLOSED Flag"
-        ])
-
-        for s in sessions:
-            prof = s.visitor_profile
-            v_id = prof.visitor_id if prof else ""
-            v_name = prof.name if prof else "Visitor"
-            v_phone = prof.phone_number if prof else ""
-            p_name = s.purpose.name_en if s.purpose else "General Darshan"
-            vol_name = s.volunteer.username if s.volunteer else s.volunteer_id
-
-            ws.append([
-                s.id,
-                v_id,
-                v_name,
-                v_phone,
-                str(s.visit_date),
-                str(s.check_in_time),
-                str(s.check_out_time) if s.check_out_time else ("23:59:59" if s.is_auto_closed else "N/A"),
-                s.duration,
-                s.persons_count,
-                p_name,
-                vol_name,
-                s.latitude or "N/A",
-                s.longitude or "N/A",
-                s.status,
-                "YES" if s.is_auto_closed else "NO",
-            ])
-
-        excel_stream = io.BytesIO()
-        wb.save(excel_stream)
-        excel_stream.seek(0)
-
-        return StreamingResponse(
-            excel_stream,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename=visitor_sessions_report_{date.today()}.xlsx"},
-        )
-
-    elif export_format == "pdf":
-        from reportlab.lib.pagesizes import letter
-        from reportlab.pdfgen import canvas
-        
-        pdf_stream = io.BytesIO()
-        c = canvas.Canvas(pdf_stream, pagesize=letter)
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(50, 750, "Sri Kalki Seva Alayam - Visit Sessions Report")
-        c.setFont("Helvetica", 12)
-        c.drawString(50, 730, f"Generated Report - {date.today()}")
-        c.line(50, 720, 550, 720)
-
-        y = 690
-        c.setFont("Helvetica-Bold", 9)
-        c.drawString(40, y, "Name")
-        c.drawString(160, y, "Phone")
-        c.drawString(250, y, "Visit Date")
-        c.drawString(330, y, "Check-in")
-        c.drawString(400, y, "Status")
-        c.drawString(480, y, "Auto Closed")
-        y -= 20
-        c.setFont("Helvetica", 8)
-
-        for s in sessions[:30]:
-            prof = s.visitor_profile
-            c.drawString(40, y, prof.name[:18] if prof else "Visitor")
-            c.drawString(160, y, prof.phone_number if prof else "")
-            c.drawString(250, y, str(s.visit_date))
-            c.drawString(330, y, str(s.check_in_time)[:8])
-            c.drawString(400, y, s.status)
-            c.drawString(480, y, "YES" if s.is_auto_closed else "NO")
-            y -= 18
-
-        c.showPage()
-        c.save()
-        pdf_stream.seek(0)
-
-        return StreamingResponse(
-            pdf_stream,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=visitor_sessions_report_{date.today()}.pdf"},
-        )
+        return _export_csv(sessions)
+    if export_format == "excel":
+        return _export_excel(sessions)
+    return _export_pdf(sessions)
