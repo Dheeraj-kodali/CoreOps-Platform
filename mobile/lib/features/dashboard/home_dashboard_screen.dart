@@ -1,18 +1,66 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:temple_visitor_app/core/localization/app_localizations.dart';
+import 'package:temple_visitor_app/core/repositories/visitor_repository.dart';
+import 'package:temple_visitor_app/core/services/websocket_service.dart';
 import 'package:temple_visitor_app/widgets/shared/stat_card.dart';
 import 'package:temple_visitor_app/widgets/shared/temple_app_bar.dart';
 
-class HomeDashboardScreen extends ConsumerWidget {
+class HomeDashboardScreen extends ConsumerStatefulWidget {
   final Function(int) onNavigateTab;
 
   const HomeDashboardScreen({Key? key, required this.onNavigateTab}) : super(key: key);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
+}
+
+class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
+  final VisitorRepository _repository = VisitorRepository();
+  StreamSubscription? _wsSubscription;
+  Map<String, dynamic> _stats = {
+    'total_visitors': 0,
+    'visitors_inside': 0,
+    'total_records': 0,
+    'visitors_left': 0,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLiveStats();
+    _wsSubscription = WebSocketService().onEvent.listen((_) {
+      _loadLiveStats();
+    });
+  }
+
+  @override
+  void dispose() {
+    _wsSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadLiveStats() async {
+    try {
+      final s = await _repository.getTodayStatistics();
+      if (mounted) {
+        setState(() {
+          _stats = s;
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
+
+    final todayVisitorsVal = '${_stats['total_visitors'] ?? 0}';
+    final visitorsInsideVal = '${_stats['visitors_inside'] ?? 0}';
+    final checkInsVal = '${_stats['total_records'] ?? 0}';
+    final checkOutsVal = '${_stats['visitors_left'] ?? 0}';
 
     return Scaffold(
       appBar: TempleAppBar(title: loc.dashboard),
@@ -65,10 +113,10 @@ class HomeDashboardScreen extends ConsumerWidget {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               children: [
-                StatCard(title: loc.todayVisitors, value: '245', icon: Icons.today),
-                StatCard(title: loc.monthlyVisitors, value: '7,450', icon: Icons.calendar_month),
-                StatCard(title: loc.yearlyVisitors, value: '89,200', icon: Icons.insights),
-                StatCard(title: loc.totalVisitors, value: '1,45,000', icon: Icons.groups),
+                StatCard(title: loc.todayVisitors, value: todayVisitorsVal, icon: Icons.today),
+                StatCard(title: 'Visitors Inside', value: visitorsInsideVal, icon: Icons.person_pin_circle),
+                StatCard(title: 'Check-ins', value: checkInsVal, icon: Icons.trending_up),
+                StatCard(title: 'Check-outs', value: checkOutsVal, icon: Icons.logout),
               ],
             ),
             const SizedBox(height: 24),

@@ -8,7 +8,7 @@ import httpx
 PROD_API_URL = "https://coreops-platform.onrender.com/api/v1"
 PROD_WS_URL = "wss://coreops-platform.onrender.com/api/v1/ws"
 NETLIFY_SITE_URL = "https://bejewelled-kitsune-115083.netlify.app"
-COMMIT_SHA = "0d8c4d2934cb88057b39bd42e40cb732ab6785d8"
+COMMIT_SHA = "1671ba6221e38fba7fdb2a12a531a8d31c23133c"
 
 async def test_live_production():
     print("=" * 80)
@@ -100,7 +100,7 @@ async def test_live_production():
             "gender": "MALE",
             "age": 30,
             "persons_count": 2,
-            "purpose_id": "3ef2daff-d716-4285-ac7c-81e702530b44",
+            "purpose_id": None,
             "visitor_date": today_date,
             "visitor_time": now_time,
             "notes": "Live Production Verification Test"
@@ -115,7 +115,10 @@ async def test_live_production():
         t1 = time.perf_counter()
         ts_post_done = datetime.now(timezone.utc).isoformat()
         print(f"   HTTP POST Response Status: {post_res.status_code} Created in {round(t1 - t0, 3)} seconds")
-        print(f"   Inserted Record: {json.dumps(post_res.json())[:150]}...")
+        if post_res.status_code in (200, 201):
+            print(f"   Inserted Record: {json.dumps(post_res.json())[:150]}...")
+        else:
+            print(f"   Error Response: {post_res.text}")
 
         # Wait for WebSocket events to arrive
         try:

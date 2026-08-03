@@ -1,0 +1,225 @@
+{
+  "post_request_timestamp": "2026-08-03T17:48:56.879835+00:00",
+  "post_response_timestamp": "2026-08-03T17:49:00.199342+00:00",
+  "post_request_payload": {
+    "visitor_uuid": "c641c0c1-4816-4c4a-872e-1cfed3c9e32c",
+    "name": "Audit Family Registration (3 people)",
+    "phone_number": "+919875779336",
+    "gender": "FEMALE",
+    "age": 28,
+    "persons_count": 3,
+    "purpose_id": null,
+    "visitor_date": "2026-08-03",
+    "visitor_time": "17:48:56",
+    "notes": "Single session with 3 family members for audit"
+  },
+  "post_response_data": {
+    "name": "Audit Family Registration (3 people)",
+    "phone_number": "+919875779336",
+    "gender": "FEMALE",
+    "age": 28,
+    "persons_count": 3,
+    "temple_id": "SKSA_MAIN",
+    "village_id": null,
+    "village_name_custom": null,
+    "purpose_id": "2711c039-457a-430b-8c4b-06aab787d042",
+    "temple_service": null,
+    "visitor_date": "2026-08-03",
+    "visitor_time": "17:48:56",
+    "notes": "Single session with 3 family members for audit",
+    "photo_url": null,
+    "latitude": null,
+    "longitude": null,
+    "id": "c641c0c1-4816-4c4a-872e-1cfed3c9e32c",
+    "visitor_uuid": "c641c0c1-4816-4c4a-872e-1cfed3c9e32c",
+    "volunteer_id": "98f15487-7ab3-4054-a77e-16b0f45727ff",
+    "sync_status": "SYNCED",
+    "status": "INSIDE",
+    "is_auto_closed": false,
+    "check_in_time": "17:48:56",
+    "check_out_time": null,
+    "duration": "1 min",
+    "created_at": "2026-08-03T17:48:59.972956Z",
+    "updated_at": "2026-08-03T17:48:59.972961Z",
+    "purpose": {
+      "id": "2711c039-457a-430b-8c4b-06aab787d042",
+      "name_en": "General Darshan",
+      "name_te": "\u0c38\u0c3e\u0c27\u0c3e\u0c30\u0c23 \u0c26\u0c30\u0c4d\u0c36\u0c28\u0c02",
+      "code": "DARSHAN_GENERAL"
+    },
+    "village": null
+  },
+  "dashboard_before": {
+    "todays_visitors": 5,
+    "visitors_inside": 5,
+    "todays_check_ins": 2,
+    "todays_check_outs": 0,
+    "pending_sync": 0,
+    "broadcast_status": "Active",
+    "recent_visitors": [],
+    "purpose_breakdown": [
+      {
+        "name": "General Darshan",
+        "count": 2,
+        "percentage": 100.0
+      }
+    ],
+    "system_health": {
+      "api_status": "ONLINE",
+      "db_status": "CONNECTED",
+      "offline_sync_engine": "ACTIVE"
+    }
+  },
+  "dashboard_after": {
+    "todays_visitors": 8,
+    "visitors_inside": 8,
+    "todays_check_ins": 3,
+    "todays_check_outs": 0,
+    "pending_sync": 0,
+    "broadcast_status": "Active",
+    "recent_visitors": [],
+    "purpose_breakdown": [
+      {
+        "name": "General Darshan",
+        "count": 3,
+        "percentage": 100.0
+      }
+    ],
+    "system_health": {
+      "api_status": "ONLINE",
+      "db_status": "CONNECTED",
+      "offline_sync_engine": "ACTIVE"
+    }
+  },
+  "ledger_today": {
+    "date": "2026-08-03",
+    "summary": {
+      "date": "2026-08-03",
+      "display_date": "03-Aug-2026",
+      "total_visitors": 8,
+      "people_inside": 8,
+      "checked_out": 0,
+      "auto_closed": 0,
+      "purpose_breakdown": {
+        "General Darshan": 8
+      },
+      "volunteer_breakdown": {
+        "98f15487-7ab3-4054-a77e-16b0f45727ff": 8
+      },
+      "avg_stay_minutes": "42 min",
+      "peak_hour": "09:00 AM - 11:30 AM",
+      "is_read_only": false
+    },
+    "sessions": [
+      {
+        "name": "Audit Family Registration (3 people)",
+        "phone_number": "+919875779336",
+        "gender": "FEMALE",
+        "age": 28,
+        "persons_count": 3,
+        "temple_id": "SKSA_MAIN",
+        "village_id": null,
+        "village_name_custom": null,
+        "purpose_id": "2711c039-457a-430b-8c4b-06aab787d042",
+        "temple_service": null,
+        "visitor_date": "2026-08-03",
+        "visitor_time": "17:48:56",
+        "notes": "Single session with 3 family members for audit",
+        "photo_url": null,
+        "latitude": null,
+        "longitude": null,
+        "id": "c641c0c1-4816-4c4a-872e-1cfed3c9e32c",
+        "visitor_uuid": "c641c0c1-4816-4c4a-872e-1cfed3c9e32c",
+        "volunteer_id": "98f15487-7ab3-4054-a77e-16b0f45727ff",
+        "sync_status": "SYNCED",
+        "status": "INSIDE",
+        "is_auto_closed": false,
+        "check_in_time": "17:48:56",
+        "check_out_time": null,
+        "duration": "1 min",
+        "created_at": "2026-08-03T17:48:59.972956Z",
+        "updated_at": "2026-08-03T17:48:59.972961Z",
+        "purpose": {
+          "id": "2711c039-457a-430b-8c4b-06aab787d042",
+          "name_en": "General Darshan",
+          "name_te": "\u0c38\u0c3e\u0c27\u0c3e\u0c30\u0c23 \u0c26\u0c30\u0c4d\u0c36\u0c28\u0c02",
+          "code": "DARSHAN_GENERAL"
+        },
+        "village": null
+      },
+      {
+        "name": "Audit Family Registration (3 people)",
+        "phone_number": "+919876511223",
+        "gender": "FEMALE",
+        "age": 28,
+        "persons_count": 3,
+        "temple_id": "SKSA_MAIN",
+        "village_id": null,
+        "village_name_custom": null,
+        "purpose_id": "2711c039-457a-430b-8c4b-06aab787d042",
+        "temple_service": null,
+        "visitor_date": "2026-08-03",
+        "visitor_time": "17:47:35",
+        "notes": "Single session with 3 family members for audit",
+        "photo_url": null,
+        "latitude": null,
+        "longitude": null,
+        "id": "dce64263-748d-40c0-8a3e-e72da9e3ed1a",
+        "visitor_uuid": "dce64263-748d-40c0-8a3e-e72da9e3ed1a",
+        "volunteer_id": "98f15487-7ab3-4054-a77e-16b0f45727ff",
+        "sync_status": "SYNCED",
+        "status": "INSIDE",
+        "is_auto_closed": false,
+        "check_in_time": "17:47:35",
+        "check_out_time": null,
+        "duration": "1 min",
+        "created_at": "2026-08-03T17:47:38.428013Z",
+        "updated_at": "2026-08-03T17:47:38.428016Z",
+        "purpose": {
+          "id": "2711c039-457a-430b-8c4b-06aab787d042",
+          "name_en": "General Darshan",
+          "name_te": "\u0c38\u0c3e\u0c27\u0c3e\u0c30\u0c23 \u0c26\u0c30\u0c4d\u0c36\u0c28\u0c02",
+          "code": "DARSHAN_GENERAL"
+        },
+        "village": null
+      },
+      {
+        "name": "Realtime Verification 2026-08-03 17:29:21",
+        "phone_number": "+919876543999",
+        "gender": "MALE",
+        "age": 30,
+        "persons_count": 2,
+        "temple_id": "SKSA_MAIN",
+        "village_id": null,
+        "village_name_custom": null,
+        "purpose_id": "2711c039-457a-430b-8c4b-06aab787d042",
+        "temple_service": null,
+        "visitor_date": "2026-08-03",
+        "visitor_time": "17:29:21",
+        "notes": "Live Production Verification Test",
+        "photo_url": null,
+        "latitude": null,
+        "longitude": null,
+        "id": "d0bffd97-c783-4f4e-9b6a-1dc6932038ca",
+        "visitor_uuid": "d0bffd97-c783-4f4e-9b6a-1dc6932038ca",
+        "volunteer_id": "98f15487-7ab3-4054-a77e-16b0f45727ff",
+        "sync_status": "SYNCED",
+        "status": "INSIDE",
+        "is_auto_closed": false,
+        "check_in_time": "17:29:21",
+        "check_out_time": null,
+        "duration": "19 min",
+        "created_at": "2026-08-03T17:29:23.318389Z",
+        "updated_at": "2026-08-03T17:29:23.318395Z",
+        "purpose": {
+          "id": "2711c039-457a-430b-8c4b-06aab787d042",
+          "name_en": "General Darshan",
+          "name_te": "\u0c38\u0c3e\u0c27\u0c3e\u0c30\u0c23 \u0c26\u0c30\u0c4d\u0c36\u0c28\u0c02",
+          "code": "DARSHAN_GENERAL"
+        },
+        "village": null
+      }
+    ]
+  },
+  "ws_received_event": null
+}

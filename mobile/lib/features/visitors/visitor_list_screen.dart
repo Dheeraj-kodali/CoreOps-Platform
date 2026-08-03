@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:temple_visitor_app/core/repositories/visitor_repository.dart';
+import 'package:temple_visitor_app/core/services/websocket_service.dart';
 import 'package:temple_visitor_app/models/visitor_model.dart';
 import 'package:temple_visitor_app/features/visitors/visitor_detail_dialog.dart';
 import 'package:temple_visitor_app/features/visitors/visitor_left_confirmation_dialog.dart';
@@ -14,6 +16,7 @@ class VisitorListScreen extends StatefulWidget {
 class VisitorListScreenState extends State<VisitorListScreen> {
   final _repository = VisitorRepository();
   final _searchController = TextEditingController();
+  StreamSubscription? _wsSubscription;
 
   List<VisitorModel> _visitors = [];
   Map<String, dynamic> _stats = {
@@ -30,10 +33,14 @@ class VisitorListScreenState extends State<VisitorListScreen> {
   void initState() {
     super.initState();
     loadTodayVisitors();
+    _wsSubscription = WebSocketService().onEvent.listen((_) {
+      loadTodayVisitors();
+    });
   }
 
   @override
   void dispose() {
+    _wsSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -41,6 +48,7 @@ class VisitorListScreenState extends State<VisitorListScreen> {
   Future<void> loadTodayVisitors() async {
     setState(() => _isLoading = true);
     try {
+      await _repository.syncRemoteLedgerSessions();
       final list = await _repository.getTodayVisitors(
         search: _searchController.text.trim(),
         statusFilter: _currentFilter,

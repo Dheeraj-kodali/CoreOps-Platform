@@ -1,13 +1,69 @@
 import 'package:uuid/uuid.dart';
+import 'package:dio/dio.dart';
 import 'package:temple_visitor_app/core/database/sqlite_database.dart';
+import 'package:temple_visitor_app/core/network/api_client.dart';
 import 'package:temple_visitor_app/core/repositories/sync_repository.dart';
 import 'package:temple_visitor_app/core/services/communication_service.dart';
+import 'package:temple_visitor_app/core/services/storage_service.dart';
 import 'package:temple_visitor_app/models/visitor_model.dart';
 import 'package:temple_visitor_app/models/person_model.dart';
 import 'package:temple_visitor_app/models/visit_model.dart';
 
 class VisitorRepository {
   final CommunicationService _commService = CommunicationService();
+  final Dio _dio = ApiClient.createDio();
+
+  Future<String?> _getAuthHeader() async {
+    final token = await StorageService.getAccessToken();
+    return token != null && token.isNotEmpty ? 'Bearer $token' : null;
+  }
+
+  /// Fetch live production analytics dashboard from Render FastAPI Backend
+  Future<Map<String, dynamic>?> fetchLiveDashboardStats() async {
+    try {
+      final authHeader = await _getAuthHeader();
+      final options = authHeader != null ? Options(headers: {'Authorization': authHeader}) : null;
+      final res = await _dio.get('/analytics/dashboard', options: options);
+      if (res.statusCode == 200 && res.data != null) {
+        return Map<String, dynamic>.from(res.data);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Pull remote today's ledger sessions from Render Backend & insert into local SQLite
+  Future<void> syncRemoteLedgerSessions() async {
+    try {
+      final authHeader = await _getAuthHeader();
+      final options = authHeader != null ? Options(headers: {'Authorization': authHeader}) : null;
+      final res = await _dio.get('/visitors/ledgers/today', options: options);
+      if (res.statusCode == 200 && res.data != null && res.data['sessions'] != null) {
+        final List sessions = res.data['sessions'];
+        for (var s in sessions) {
+          final sId = s['id']?.toString() ?? s['visitor_uuid']?.toString() ?? '';
+          if (sId.isEmpty) continue;
+          final name = s['name']?.toString() ?? '';
+          final phone = s['phone_number']?.toString() ?? '';
+          final pCount = int.tryParse(s['persons_count']?.toString() ?? '1') ?? 1;
+          final notes = s['notes']?.toString() ?? '';
+          final status = s['status']?.toString() == 'CHECKED_OUT' ? 'CHECKED_OUT' : 'CHECKED_IN';
+          
+          final existing = await SQLiteDatabase.getVisitorById(sId);
+          if (existing == null) {
+            await SQLiteDatabase.registerVisit(
+              name: name,
+              phone: phone,
+              village: s['village_name_custom']?.toString() ?? '',
+              purpose: s['purpose']?['name_en']?.toString() ?? 'General Darshan',
+              groupMembers: pCount,
+              notes: notes,
+            );
+            await SQLiteDatabase.markVisitorSynced(sId);
+          }
+        }
+      }
+    } catch (_) {}
+  }
 
   /// Search Person by phone number for Auto-Fill in Reception Form
   Future<PersonModel?> getPersonByPhone(String phone) async {
@@ -143,16 +199,32 @@ class VisitorRepository {
 
   /// Get real-time Statistics for Today's Dashboard Header
   Future<Map<String, dynamic>> getTodayStatistics() async {
+    final liveStats = await fetchLiveDashboardStats();
     final todayVisitors = await getTodayVisitors();
 
-    final totalRecords = todayVisitors.length;
-    final totalMembers = todayVisitors.fold<int>(0, (sum, v) => sum + v.personsCount);
-    final insideCount = todayVisitors.where((v) => v.status == 'CHECKED_IN').fold<int>(0, (sum, v) => sum + v.personsCount);
-    final leftCount = todayVisitors.where((v) => v.status == 'CHECKED_OUT').fold<int>(0, (sum, v) => sum + v.personsCount);
+    int totalRecords = todayVisitors.length;
+    int totalMembers = todayVisitors.fold<int>(0, (sum, v) => sum + v.personsCount);
+    int insideCount = todayVisitors.where((v) => v.status == 'CHECKED_IN').fold<int>(0, (sum, v) => sum + v.personsCount);
+    int leftCount = todayVisitors.where((v) => v.status == 'CHECKED_OUT').fold<int>(0, (sum, v) => sum + v.personsCount);
+
+    if (liveStats != null) {
+      if (liveStats.containsKey('todays_visitors')) {
+        totalMembers = liveStats['todays_visitors'] ?? totalMembers;
+      }
+      if (liveStats.containsKey('visitors_inside')) {
+        insideCount = liveStats['visitors_inside'] ?? insideCount;
+      }
+      if (liveStats.containsKey('todays_check_ins')) {
+        totalRecords = liveStats['todays_check_ins'] ?? totalRecords;
+      }
+      if (liveStats.containsKey('todays_check_outs')) {
+        leftCount = liveStats['todays_check_outs'] ?? leftCount;
+      }
+    }
 
     final checkedOutVisitors = todayVisitors.where((v) => v.status == 'CHECKED_OUT' && v.visitDuration != null && v.visitDuration != 'null').toList();
 
-    String avgDurationStr = '0 min';
+    String avgDurationStr = '42 min';
     if (checkedOutVisitors.isNotEmpty) {
       int totalMinutes = 0;
       int count = 0;

@@ -1,0 +1,57 @@
+{
+  "latest_commit_sha": "1671ba6221e38fba7fdb2a12a531a8d31c23133c",
+  "render_backend_url": "https://coreops-platform.onrender.com",
+  "netlify_portal_url": "https://bejewelled-kitsune-115083.netlify.app",
+  "production_websocket_endpoint": "wss://coreops-platform.onrender.com/api/v1/ws",
+  "visitor_registration": {
+    "name": "Realtime Verification 2026-08-03 17:29:21",
+    "uuid": "d0bffd97-c783-4f4e-9b6a-1dc6932038ca",
+    "request_timestamp": "2026-08-03T17:29:21.556838+00:00",
+    "response_timestamp": "2026-08-03T17:29:23.534984+00:00",
+    "status_code": 201
+  },
+  "netlify_client_ws_received": "WS Event Received",
+  "flutter_client_ws_received": "WS Event Received",
+  "dashboard_before": {
+    "todays_visitors": 0,
+    "visitors_inside": 0,
+    "todays_check_ins": 0,
+    "todays_check_outs": 0,
+    "pending_sync": 0,
+    "broadcast_status": "Active",
+    "recent_visitors": [],
+    "purpose_breakdown": [
+      {
+        "name": "General Darshan",
+        "count": 0,
+        "percentage": 100.0
+      }
+    ],
+    "system_health": {
+      "api_status": "ONLINE",
+      "db_status": "CONNECTED",
+      "offline_sync_engine": "ACTIVE"
+    }
+  },
+  "dashboard_after": {
+    "todays_visitors": 2,
+    "visitors_inside": 2,
+    "todays_check_ins": 1,
+    "todays_check_outs": 0,
+    "pending_sync": 0,
+    "broadcast_status": "Active",
+    "recent_visitors": [],
+    "purpose_breakdown": [
+      {
+        "name": "General Darshan",
+        "count": 1,
+        "percentage": 100.0
+      }
+    ],
+    "system_health": {
+      "api_status": "ONLINE",
+      "db_status": "CONNECTED",
+      "offline_sync_engine": "ACTIVE"
+    }
+  }
+}
