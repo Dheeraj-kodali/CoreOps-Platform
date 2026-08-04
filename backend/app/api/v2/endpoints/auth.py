@@ -1,3 +1,4 @@
+from typing import Annotated
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +25,7 @@ router = APIRouter()
 async def login_v2(
     login_data: V2LoginRequest,
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """v2 API Authentication Endpoint.
     
@@ -91,7 +92,7 @@ async def login_v2(
 @router.post("/refresh", response_model=V2RefreshTokenResponse)
 async def refresh_token_v2(
     refresh_data: V2RefreshTokenRequest,
-    db: AsyncSession = Depends(get_db),
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """v2 Refresh Token Renewal Endpoint."""
     payload = decode_token(refresh_data.refresh_token)
@@ -122,7 +123,7 @@ async def refresh_token_v2(
 @router.get("/me", response_model=V2UserProfileResponse)
 async def get_me_v2(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     """v2 Profile & RBAC Permissions Endpoint."""
     user_roles = [r.name for r in current_user.roles]
@@ -150,8 +151,8 @@ async def get_me_v2(
 @router.post("/logout")
 async def logout_v2(
     request: Request,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """v2 Session Revocation Endpoint."""
     jti = getattr(current_user, "current_jti", None)
