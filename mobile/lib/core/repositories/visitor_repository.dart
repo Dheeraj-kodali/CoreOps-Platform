@@ -246,7 +246,7 @@ class VisitorRepository {
 
     final checkedOutVisitors = todayVisitors.where((v) => v.status == 'CHECKED_OUT' && v.visitDuration != null && v.visitDuration != 'null').toList();
 
-    String avgDurationStr = '42 min';
+    String avgDurationStr = todayVisitors.isNotEmpty ? '1 min' : '0 min';
     if (checkedOutVisitors.isNotEmpty) {
       int totalMinutes = 0;
       int count = 0;

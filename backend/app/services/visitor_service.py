@@ -472,6 +472,50 @@ class VisitorService(BaseService[VisitSession]):
                 vname = s.volunteer_id or "admin"
                 v_bd[vname] = v_bd.get(vname, 0) + s.persons_count
 
+            completed_durations = []
+            hourly_counts = {}
+
+            for s in g_sessions:
+                # 1. Peak Window Hourly Counts
+                check_in_val = s.check_in_time or getattr(s, 'visitor_time', None)
+                if check_in_val:
+                    try:
+                        h = int(str(check_in_val).split(":")[0])
+                        hourly_counts[h] = hourly_counts.get(h, 0) + s.persons_count
+                    except Exception:
+                        pass
+
+                # 2. Avg Stay Minutes
+                if s.check_out_time and s.check_in_time:
+                    try:
+                        t1_str = str(s.check_in_time)[:5]
+                        t2_str = str(s.check_out_time)[:5]
+                        h1, m1 = map(int, t1_str.split(":"))
+                        h2, m2 = map(int, t2_str.split(":"))
+                        dur_m = (h2 * 60 + m2) - (h1 * 60 + m1)
+                        if dur_m >= 0:
+                            completed_durations.append(dur_m)
+                    except Exception:
+                        pass
+
+            if completed_durations:
+                avg_m = round(sum(completed_durations) / len(completed_durations))
+                avg_stay_str = f"{avg_m} min" if avg_m > 0 else "1 min"
+            elif p_inside > 0:
+                avg_stay_str = "1 min"
+            else:
+                avg_stay_str = "0 min"
+
+            if hourly_counts:
+                peak_h = max(hourly_counts.items(), key=lambda item: item[1])[0]
+                h_start_num = peak_h % 12 if (peak_h % 12) != 0 else 12
+                ampm1 = "AM" if peak_h < 12 else "PM"
+                h_end_num = (peak_h + 1) % 12 if ((peak_h + 1) % 12) != 0 else 12
+                ampm2 = "AM" if (peak_h + 1) < 12 or (peak_h + 1) == 24 else "PM"
+                peak_window_str = f"{h_start_num:02d}:00 {ampm1} - {h_end_num:02d}:00 {ampm2}"
+            else:
+                peak_window_str = "N/A"
+
             summary = {
                 "date": d_str,
                 "display_date": d_obj.strftime("%d-%b-%Y"),
@@ -481,8 +525,8 @@ class VisitorService(BaseService[VisitSession]):
                 "auto_closed": p_autoclose,
                 "purpose_breakdown": p_bd,
                 "volunteer_breakdown": v_bd,
-                "avg_stay_minutes": "42 min",
-                "peak_hour": "09:00 AM - 11:30 AM",
+                "avg_stay_minutes": avg_stay_str,
+                "peak_hour": peak_window_str,
                 "is_read_only": d_obj < today,
             }
 
