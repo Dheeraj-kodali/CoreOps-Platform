@@ -196,79 +196,87 @@ class VisitorListScreenState extends State<VisitorListScreen> {
                           final v = _visitors[index];
                           final isInside = v.status == 'CHECKED_IN' || v.status == 'INSIDE';
 
-                          return Card(
-                            margin: const EdgeInsets.symmetric(vertical: 5),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 2,
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (_) => VisitorDetailDialog(
-                                    visitor: v,
-                                    onCheckOut: loadTodayVisitors,
+                          final showDateHeader = index == 0 || v.visitorDate != _visitors[index - 1].visitorDate;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (showDateHeader) _buildDateHeader(v.visitorDate),
+                              Card(
+                                margin: const EdgeInsets.symmetric(vertical: 5),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 2,
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                  onTap: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (_) => VisitorDetailDialog(
+                                        visitor: v,
+                                        onCheckOut: loadTodayVisitors,
+                                      ),
+                                    );
+                                  },
+                                  leading: CircleAvatar(
+                                    radius: 22,
+                                    backgroundColor: isInside ? Colors.green : Colors.grey,
+                                    child: Text(
+                                      v.name.isNotEmpty ? v.name[0].toUpperCase() : 'V',
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                                    ),
                                   ),
-                                );
-                              },
-                              leading: CircleAvatar(
-                                radius: 22,
-                                backgroundColor: isInside ? Colors.green : Colors.grey,
-                                child: Text(
-                                  v.name.isNotEmpty ? v.name[0].toUpperCase() : 'V',
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                                  title: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          v.name,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: isInside ? Colors.green.shade100 : Colors.grey.shade200,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          v.displayStatus,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: isInside ? Colors.green.shade800 : Colors.black87,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 3),
+                                      Text('${v.phoneNumber}  •  ${v.village}'),
+                                      Text(
+                                        isInside
+                                            ? 'In: ${v.timeIn}  •  ${v.personsCount} Person(s)'
+                                            : 'In: ${v.timeIn}  •  Out: ${v.timeOut ?? "N/A"}  •  ${v.formattedDuration}',
+                                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                  trailing: isInside
+                                      ? ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.orange,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          ),
+                                          onPressed: () => _triggerVisitorLeft(v),
+                                          child: const Text('VISITOR LEFT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                        )
+                                      : const Icon(Icons.check_circle, color: Colors.grey),
                                 ),
                               ),
-                              title: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      v.name,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: isInside ? Colors.green.shade100 : Colors.grey.shade200,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      v.displayStatus,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: isInside ? Colors.green.shade800 : Colors.black87,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 3),
-                                  Text('${v.phoneNumber}  •  ${v.village}'),
-                                  Text(
-                                    isInside
-                                        ? 'In: ${v.timeIn}  •  ${v.personsCount} Person(s)'
-                                        : 'In: ${v.timeIn}  •  Out: ${v.timeOut ?? "N/A"}  •  ${v.formattedDuration}',
-                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                  ),
-                                ],
-                              ),
-                              trailing: isInside
-                                  ? ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.orange,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      ),
-                                      onPressed: () => _triggerVisitorLeft(v),
-                                      child: const Text('VISITOR LEFT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                                    )
-                                  : const Icon(Icons.check_circle, color: Colors.grey),
-                            ),
+                            ],
                           );
                         },
                       ),
@@ -316,5 +324,50 @@ class VisitorListScreenState extends State<VisitorListScreen> {
         }
       },
     );
+  }
+
+  Widget _buildDateHeader(String rawDate) {
+    final now = DateTime.now();
+    final todayStr = now.toString().split(' ')[0];
+    final yesterdayStr = now.subtract(const Duration(days: 1)).toString().split(' ')[0];
+    final dayBeforeStr = now.subtract(const Duration(days: 2)).toString().split(' ')[0];
+
+    String label = rawDate;
+    if (rawDate == todayStr) {
+      label = 'Today  •  ${_formatReadableDate(now)}';
+    } else if (rawDate == yesterdayStr) {
+      label = 'Yesterday  •  ${_formatReadableDate(now.subtract(const Duration(days: 1)))}';
+    } else if (rawDate == dayBeforeStr) {
+      label = _formatReadableDate(now.subtract(const Duration(days: 2)));
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10, bottom: 4, left: 2, right: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF3E2723),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.calendar_today_rounded, size: 13, color: Color(0xFFD4AF37)),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              color: Color(0xFFD4AF37),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatReadableDate(DateTime dt) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
 }

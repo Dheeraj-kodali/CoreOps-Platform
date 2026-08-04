@@ -765,14 +765,6 @@ class SQLiteDatabase {
     final visitId = _uuid.v4();
     final eventId = _uuid.v4();
     final clientTs = now.millisecondsSinceEpoch;
-    final activeVisitorQuery = await db.query(
-      'visitors',
-      where: "phone_number = ? AND status = 'CHECKED_IN' AND is_deleted = 0",
-      whereArgs: [cleanPhone],
-    );
-    if (activeVisitorQuery.isNotEmpty) {
-      throw Exception('Visitor already inside temple.');
-    }
 
     await db.transaction((txn) async {
       final existingPerson = await txn.query('persons', where: 'phone = ?', whereArgs: [cleanPhone]);
@@ -914,6 +906,67 @@ class SQLiteDatabase {
     if (dateFilter != null && dateFilter.isNotEmpty) {
       sql += ' AND v.check_in LIKE ?';
       args.add('$dateFilter%');
+    }
+
+    if (statusFilter != null && statusFilter != 'ALL') {
+      if (statusFilter == 'INSIDE' || statusFilter == 'CHECKED_IN') {
+        sql += " AND (v.status = 'INSIDE' OR v.status = 'CHECKED_IN')";
+      } else if (statusFilter == 'COMPLETED' || statusFilter == 'CHECKED_OUT') {
+        sql += " AND (v.status = 'CHECKED_OUT' OR v.status = 'AUTO_CLOSED')";
+      } else {
+        sql += " AND v.status = ?";
+        args.add(statusFilter);
+      }
+    }
+
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      sql += ' AND (p.name LIKE ? OR p.phone LIKE ? OR p.village LIKE ?)';
+      final pattern = '%$searchQuery%';
+      args.addAll([pattern, pattern, pattern]);
+    }
+
+    sql += ' ORDER BY v.created_at DESC';
+
+    return await db.rawQuery(sql, args);
+  }
+
+  /// Query Visits Joined with Person Details across Multiple Dates
+  static Future<List<Map<String, dynamic>>> getVisitsJoinedMultiDates({
+    String? searchQuery,
+    List<String>? dateFilters,
+    String? statusFilter,
+  }) async {
+    final db = await instance;
+    String sql = '''
+      SELECT 
+        v.visit_id,
+        v.person_id,
+        v.check_in,
+        v.check_out,
+        v.purpose,
+        v.group_members,
+        v.notes,
+        v.visit_duration AS visit_duration,
+        v.status,
+        v.created_at,
+        v.updated_at,
+        p.name AS person_name,
+        p.phone AS person_phone,
+        p.village AS person_village,
+        p.total_visits
+      FROM visits v
+      INNER JOIN persons p ON v.person_id = p.person_id
+      WHERE 1=1
+    ''';
+
+    List<dynamic> args = [];
+
+    if (dateFilters != null && dateFilters.isNotEmpty) {
+      final placeholders = dateFilters.map((_) => 'v.check_in LIKE ?').join(' OR ');
+      sql += ' AND ($placeholders)';
+      for (var d in dateFilters) {
+        args.add('$d%');
+      }
     }
 
     if (statusFilter != null && statusFilter != 'ALL') {

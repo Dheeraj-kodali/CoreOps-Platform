@@ -86,15 +86,6 @@ class VisitorService(BaseService[VisitSession]):
         profile = await self.visitor_repo.get_profile_by_phone(clean_phone)
 
         if profile:
-            # Check if visitor is currently INSIDE today
-            sessions_today = await self.visitor_repo.get_sessions_for_profile(profile.id)
-            active_today = [s for s in sessions_today if s.visit_date == payload.visitor_date and s.status == "INSIDE"]
-            if active_today:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Visitor already inside temple today."
-                )
-
             # Update profile info if user modified fields during entry
             profile_updates = {}
             if payload.name and payload.name != profile.name:

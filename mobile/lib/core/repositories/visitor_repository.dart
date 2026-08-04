@@ -44,6 +44,7 @@ class VisitorRepository {
           if (sId.isEmpty) continue;
           final name = s['name']?.toString() ?? '';
           final phone = s['phone_number']?.toString() ?? '';
+          if (phone == '9876543210' || name.contains('Sri Krishna Devotee')) continue;
           final pCount = int.tryParse(s['persons_count']?.toString() ?? '1') ?? 1;
           final notes = s['notes']?.toString() ?? '';
           final status = s['status']?.toString() == 'CHECKED_OUT' ? 'CHECKED_OUT' : 'CHECKED_IN';
@@ -155,12 +156,17 @@ class VisitorRepository {
     return '$hours hr $minsPadded min';
   }
 
-  /// Get today's visitors joined with Person details
+  /// Get last 3 days of visitors joined with Person details
   Future<List<VisitorModel>> getTodayVisitors({String? search, String statusFilter = 'ALL'}) async {
-    final todayStr = DateTime.now().toString().split(' ')[0];
-    final rows = await SQLiteDatabase.getVisitsJoined(
+    final now = DateTime.now();
+    final dates = [
+      now.toString().split(' ')[0],
+      now.subtract(const Duration(days: 1)).toString().split(' ')[0],
+      now.subtract(const Duration(days: 2)).toString().split(' ')[0],
+    ];
+    final rows = await SQLiteDatabase.getVisitsJoinedMultiDates(
       searchQuery: search,
-      dateFilter: todayStr,
+      dateFilters: dates,
       statusFilter: statusFilter,
     );
     return rows.map((r) => VisitorModel.fromJson(r)).toList();
