@@ -39,7 +39,7 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
     super.initState();
     _loadReportData();
     _syncSub = CentralSyncManager.instance.onSyncCompleted.listen((_) {
-      _loadReportData();
+      _loadReportData(silent: true);
     });
   }
 
@@ -49,8 +49,10 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
     super.dispose();
   }
 
-  Future<void> _loadReportData() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadReportData({bool silent = false}) async {
+    if (!silent && _filteredVisitors.isEmpty) {
+      setState(() => _isLoading = true);
+    }
 
     final now = DateTime.now();
     DateTime start = DateTime(now.year, now.month, now.day);

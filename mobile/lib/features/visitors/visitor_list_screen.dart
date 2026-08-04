@@ -34,7 +34,7 @@ class VisitorListScreenState extends State<VisitorListScreen> {
     super.initState();
     loadTodayVisitors();
     _syncSubscription = CentralSyncManager.instance.onSyncCompleted.listen((_) {
-      loadTodayVisitors();
+      loadTodayVisitors(silent: true);
     });
   }
 
@@ -45,10 +45,14 @@ class VisitorListScreenState extends State<VisitorListScreen> {
     super.dispose();
   }
 
-  Future<void> loadTodayVisitors() async {
-    setState(() => _isLoading = true);
+  Future<void> loadTodayVisitors({bool silent = false}) async {
+    if (!silent && _visitors.isEmpty) {
+      setState(() => _isLoading = true);
+    }
     try {
-      await _repository.syncRemoteLedgerSessions();
+      if (!silent) {
+        await _repository.syncRemoteLedgerSessions();
+      }
       final list = await _repository.getTodayVisitors(
         search: _searchController.text.trim(),
         statusFilter: _currentFilter,

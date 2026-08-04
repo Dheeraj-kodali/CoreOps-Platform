@@ -26,7 +26,7 @@ class _VisitorProfileScreenState extends State<VisitorProfileScreen> {
     super.initState();
     _loadProfile();
     _syncSub = CentralSyncManager.instance.onSyncCompleted.listen((_) {
-      _loadProfile();
+      _loadProfile(silent: true);
     });
   }
 
@@ -36,8 +36,10 @@ class _VisitorProfileScreenState extends State<VisitorProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _loadProfile() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadProfile({bool silent = false}) async {
+    if (!silent && _person == null) {
+      setState(() => _isLoading = true);
+    }
     final person = await _repository.getPersonById(widget.personId);
     final visits = await _repository.getVisitsForPerson(widget.personId);
     if (mounted) {
