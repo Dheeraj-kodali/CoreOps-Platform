@@ -89,6 +89,8 @@ class CentralSyncManager extends StateNotifier<CentralSyncState> with WidgetsBin
 
   bool _initialized = false;
 
+  bool _hasPendingSyncRequest = false;
+
   CentralSyncManager._internal() : super(CentralSyncState(pendingCount: 0, isSyncing: false)) {
     _init();
   }
@@ -116,8 +118,8 @@ class CentralSyncManager extends StateNotifier<CentralSyncState> with WidgetsBin
       }
     });
 
-    // 3. Periodic background sync timer (every 10s if pending items exist)
-    _periodicTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+    // 3. Fast Periodic background sync timer (every 3s if pending items exist)
+    _periodicTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       final count = await _syncRepo.getPendingCount();
       state = state.copyWith(pendingCount: count);
       if (count > 0 && !state.isSyncing) {
@@ -151,7 +153,8 @@ class CentralSyncManager extends StateNotifier<CentralSyncState> with WidgetsBin
     String reason = 'Manual Refresh',
   }) async {
     if (state.isSyncing) {
-      AppLogger.info('[CentralSyncManager] Sync already in progress. Skipping duplicate request ($reason).');
+      _hasPendingSyncRequest = true;
+      AppLogger.info('[CentralSyncManager] Sync already in progress. Queued follow-up sync ($reason).');
       return false;
     }
 
@@ -197,6 +200,13 @@ class CentralSyncManager extends StateNotifier<CentralSyncState> with WidgetsBin
 
       _syncEventController.add(event);
       AppLogger.info('[CentralSyncManager] Full synchronization completed successfully. Notified all subscribed UI listeners.');
+
+      // Process any queued sync request immediately
+      if (_hasPendingSyncRequest) {
+        _hasPendingSyncRequest = false;
+        Future.microtask(() => triggerSync(type: type, reason: 'Queued follow-up sync execution'));
+      }
+
       return queueSuccess;
     } catch (e) {
       AppLogger.error('[CentralSyncManager] Error during full synchronization ($reason): $e');
@@ -204,6 +214,10 @@ class CentralSyncManager extends StateNotifier<CentralSyncState> with WidgetsBin
         isSyncing: false,
         lastMessage: 'Sync error: $e',
       );
+      if (_hasPendingSyncRequest) {
+        _hasPendingSyncRequest = false;
+        Future.microtask(() => triggerSync(type: type, reason: 'Queued follow-up sync execution after error'));
+      }
       return false;
     }
   }
