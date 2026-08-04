@@ -51,7 +51,10 @@ class Settings(BaseSettings):
                 "CRITICAL STARTUP FAILURE: DATABASE_URL environment variable is missing or empty. "
                 "Please configure DATABASE_URL in backend/.env file (e.g. Neon PostgreSQL or SQLite)."
             )
-        return v.strip()
+        url = v.strip()
+        if "postgresql+asyncpg://" in url:
+            url = url.replace("sslmode=require", "ssl=require").replace("sslmode=prefer", "ssl=prefer").replace("sslmode=disable", "ssl=disable")
+        return url
 
     model_config = SettingsConfigDict(
         env_file=".env",
