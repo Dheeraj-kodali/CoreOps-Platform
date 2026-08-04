@@ -69,6 +69,9 @@ async def update_visitor_profile(
 
 def _map_session_to_visitor_response(session_record) -> VisitorResponse:
     prof = session_record.visitor_profile
+    purpose_resp = PurposeResponse.model_validate(session_record.purpose) if session_record and session_record.purpose else None
+    village_resp = VillageResponse.model_validate(prof.village) if prof and prof.village else None
+
     return VisitorResponse(
         id=session_record.id,
         visitor_uuid=session_record.id,
@@ -95,8 +98,8 @@ def _map_session_to_visitor_response(session_record) -> VisitorResponse:
         duration=session_record.duration,
         created_at=session_record.created_at,
         updated_at=session_record.updated_at,
-        purpose=session_record.purpose,
-        village=prof.village if prof else None,
+        purpose=purpose_resp,
+        village=village_resp,
     )
 
 
