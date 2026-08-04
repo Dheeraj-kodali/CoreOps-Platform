@@ -216,24 +216,26 @@ class VisitorRepository {
     final liveStats = await fetchLiveDashboardStats();
     final todayVisitors = await getTodayVisitors();
 
-    int totalRecords = todayVisitors.length;
-    int totalMembers = todayVisitors.fold<int>(0, (sum, v) => sum + v.personsCount);
-    int insideCount = todayVisitors.where((v) => v.status == 'CHECKED_IN').fold<int>(0, (sum, v) => sum + v.personsCount);
-    int leftCount = todayVisitors.where((v) => v.status == 'CHECKED_OUT').fold<int>(0, (sum, v) => sum + v.personsCount);
+    int localRecords = todayVisitors.length;
+    int localMembers = todayVisitors.fold<int>(0, (sum, v) => sum + v.personsCount);
+    int localInside = todayVisitors.where((v) => v.status == 'CHECKED_IN').fold<int>(0, (sum, v) => sum + v.personsCount);
+    int localLeft = todayVisitors.where((v) => v.status == 'CHECKED_OUT').fold<int>(0, (sum, v) => sum + v.personsCount);
+
+    int totalRecords = localRecords;
+    int totalMembers = localMembers;
+    int insideCount = localInside;
+    int leftCount = localLeft;
 
     if (liveStats != null) {
-      if (liveStats.containsKey('todays_visitors')) {
-        totalMembers = liveStats['todays_visitors'] ?? totalMembers;
-      }
-      if (liveStats.containsKey('visitors_inside')) {
-        insideCount = liveStats['visitors_inside'] ?? insideCount;
-      }
-      if (liveStats.containsKey('todays_check_ins')) {
-        totalRecords = liveStats['todays_check_ins'] ?? totalRecords;
-      }
-      if (liveStats.containsKey('todays_check_outs')) {
-        leftCount = liveStats['todays_check_outs'] ?? leftCount;
-      }
+      final remoteVisitors = liveStats['todays_visitors'] as int? ?? 0;
+      final remoteInside = liveStats['visitors_inside'] as int? ?? 0;
+      final remoteCheckIns = liveStats['todays_check_ins'] as int? ?? 0;
+      final remoteCheckOuts = liveStats['todays_check_outs'] as int? ?? 0;
+
+      totalMembers = localMembers > remoteVisitors ? localMembers : remoteVisitors;
+      insideCount = localInside > remoteInside ? localInside : remoteInside;
+      totalRecords = localRecords > remoteCheckIns ? localRecords : remoteCheckIns;
+      leftCount = localLeft > remoteCheckOuts ? localLeft : remoteCheckOuts;
     }
 
     final checkedOutVisitors = todayVisitors.where((v) => v.status == 'CHECKED_OUT' && v.visitDuration != null && v.visitDuration != 'null').toList();
