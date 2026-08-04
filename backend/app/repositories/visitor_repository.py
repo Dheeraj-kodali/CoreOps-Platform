@@ -104,6 +104,10 @@ class VisitorRepository(BaseRepository[VisitSession]):
         elif not check_in_time:
             check_in_time = datetime.now().time()
 
+        volunteer_id = user_id or data.get("volunteer_id")
+        if not volunteer_id or volunteer_id == "usr_admin_default":
+            volunteer_id = "98f15487-7ab3-4054-a77e-16b0f45727ff"
+
         session_record = VisitSession(
             id=session_id,
             visitor_profile_id=data["visitor_profile_id"],
@@ -114,7 +118,7 @@ class VisitorRepository(BaseRepository[VisitSession]):
             persons_count=int(data.get("persons_count", 1)),
             purpose_id=data["purpose_id"],
             notes=data.get("notes"),
-            volunteer_id=user_id or data.get("volunteer_id", "usr_admin_default"),
+            volunteer_id=volunteer_id,
             latitude=data.get("latitude"),
             longitude=data.get("longitude"),
             status=data.get("status", "INSIDE"),
