@@ -196,10 +196,56 @@ class MetaWhatsAppProvider implements ChannelProvider {
     } catch (e, st) {
       debugPrint('\n==================================================');
       debugPrint('[META WHATSAPP UNHANDLED EXCEPTION]');
-      debugPrint('Error: $e');
-      debugPrint('Stack Trace:\n$st');
-      debugPrint('==================================================\n');
       return MetaDispatchResult(success: false, errorMessage: 'Unhandled exception: $e');
+    }
+  }
+}
+
+class N8NWhatsAppProvider implements ChannelProvider {
+  final CommunicationSettings settings;
+
+  N8NWhatsAppProvider(this.settings);
+
+  @override
+  String get channelName => 'N8N_AUTOMATION';
+
+  @override
+  Future<MetaDispatchResult> sendMessage(String recipientPhone, String renderedMessage) async {
+    final webhookUrl = (settings.accessToken != null && settings.accessToken!.startsWith('http'))
+        ? settings.accessToken!
+        : 'https://n8n.kalkiseva.org/webhook/whatsapp-send';
+
+    var cleanPhone = recipientPhone.replaceAll(RegExp(r'[^\d+]'), '');
+
+    final payload = {
+      'event': 'WHATSAPP_SEND_MESSAGE',
+      'recipient_phone': cleanPhone,
+      'message_text': renderedMessage,
+      'message_type': 'MOBILE_DISPATCH',
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+    };
+
+    try {
+      final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 10), receiveTimeout: const Duration(seconds: 10)));
+      final res = await dio.post(webhookUrl, data: payload);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        return MetaDispatchResult(
+          success: true,
+          metaMessageId: res.data?['execution_id']?.toString() ?? 'n8n-mobile-ok',
+          statusCode: res.statusCode,
+        );
+      } else {
+        return MetaDispatchResult(
+          success: false,
+          errorMessage: 'HTTP ${res.statusCode}: ${res.statusMessage}',
+          statusCode: res.statusCode,
+        );
+      }
+    } catch (e) {
+      return MetaDispatchResult(
+        success: false,
+        errorMessage: 'n8n Webhook connection error: $e',
+      );
     }
   }
 }
@@ -350,7 +396,9 @@ class CommunicationService {
       );
 
       ChannelProvider provider;
-      if (settings.mode == 'META_CLOUD_API') {
+      if (settings.mode == 'N8N_AUTOMATION') {
+        provider = N8NWhatsAppProvider(settings);
+      } else if (settings.mode == 'META_CLOUD_API') {
         provider = MetaWhatsAppProvider(settings);
       } else {
         provider = ManualWhatsAppProvider();

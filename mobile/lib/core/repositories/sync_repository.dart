@@ -64,7 +64,7 @@ class SyncRepository {
       }
 
       // 1. Fetch backend default purpose ID
-      String purposeId = '3ef2daff-d716-4285-ac7c-81e702530b44';
+      String purposeId = '2711c039-457a-430b-8c4b-06aab787d042';
       try {
         final purpRes = await _dio.get('/analytics/purpose-breakdown');
         if (purpRes.statusCode == 200 && purpRes.data != null) {
@@ -88,21 +88,9 @@ class SyncRepository {
         final phone = visitorMap['phone_number']?.toString() ?? '';
         final count = int.tryParse(visitorMap['persons_count']?.toString() ?? '1') ?? 1;
         final notes = visitorMap['notes']?.toString() ?? '';
+        final village = visitorMap['village']?.toString() ?? 'Local';
         final visitorDate = visitorMap['visitor_date']?.toString() ?? DateTime.now().toIso8601String().split('T')[0];
         final timeIn = visitorMap['time_in']?.toString() ?? '10:00:00';
-
-        // Extract latitude and longitude if present in notes or fields
-        double? latitude;
-        double? longitude;
-        if (notes.contains('[GPS:')) {
-          try {
-            final gpsMatch = RegExp(r'\[GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)\]').firstMatch(notes);
-            if (gpsMatch != null) {
-              latitude = double.tryParse(gpsMatch.group(1)!);
-              longitude = double.tryParse(gpsMatch.group(2)!);
-            }
-          } catch (_) {}
-        }
 
         final payload = {
           'visitor_uuid': visitorUuid.isNotEmpty ? visitorUuid : visitorId,
@@ -110,13 +98,12 @@ class SyncRepository {
           'phone_number': phone,
           'gender': 'MALE',
           'age': 30,
+          'village_name_custom': village,
           'persons_count': count,
           'purpose_id': purposeId,
           'visitor_date': visitorDate.contains('T') ? visitorDate.split('T')[0] : visitorDate,
           'visitor_time': timeIn.length == 5 ? '$timeIn:00' : timeIn,
           'notes': notes,
-          'latitude': latitude,
-          'longitude': longitude,
         };
 
         try {
@@ -163,10 +150,10 @@ class SyncRepository {
 
             if (op == 'CHECKOUT') {
               final visitId = payload['visit_id']?.toString() ?? entityId;
-              final checkoutTime = payload['check_out']?.toString();
-              final duration = payload['visit_duration']?.toString();
+              final checkoutTime = payload['check_out']?.toString() ?? payload['checkout_time']?.toString() ?? '12:00:00';
+              final duration = payload['visit_duration']?.toString() ?? payload['duration']?.toString() ?? '1 min';
               final checkoutBody = {
-                'checkout_time': checkoutTime,
+                'checkout_time': checkoutTime.length == 5 ? '$checkoutTime:00' : checkoutTime,
                 'duration': duration,
               };
               AppLogger.info('Posting checkout for visitor $visitId to backend...');
@@ -178,9 +165,17 @@ class SyncRepository {
                 allSuccess = false;
               }
             } else {
+              if (!payload.containsKey('visitor_time') || payload['visitor_time'] == null) {
+                final t = payload['time_in']?.toString() ?? '10:00:00';
+                payload['visitor_time'] = t.length == 5 ? '$t:00' : t;
+              }
+              if (!payload.containsKey('village_name_custom') || payload['village_name_custom'] == null) {
+                payload['village_name_custom'] = payload['village']?.toString() ?? 'Local';
+              }
               if (!payload.containsKey('purpose_id') || payload['purpose_id'] == null) {
                 payload['purpose_id'] = purposeId;
               }
+              AppLogger.info('Posting sync_queue visitor event $qId (${payload['name']}) to Render backend...');
               final res = await _dio.post('/visitors/', data: payload);
               if (res.statusCode == 200 || res.statusCode == 201) {
                 await SQLiteDatabase.updateSyncQueueStatusByQueueId(qId, 'SUCCESS');
@@ -189,12 +184,13 @@ class SyncRepository {
                   await SQLiteDatabase.markVisitorSynced(vUuid);
                 }
                 AppLogger.info('[SYNC SUCCESS] sync_queue event $qId successfully synced to Neon DB');
+              } else {
+                allSuccess = false;
               }
             }
           }
         } on DioException catch (e) {
           if (op == 'CHECKOUT' && e.response?.statusCode == 404) {
-            // Visitor not found on backend (e.g. checked out before check-in synced)
             AppLogger.warning('Visitor $entityId checkout 404 on backend. Marking sync_queue item SUCCESS.');
             await SQLiteDatabase.updateSyncQueueStatusByQueueId(qId, 'SUCCESS');
           } else if (e.response?.statusCode == 409) {

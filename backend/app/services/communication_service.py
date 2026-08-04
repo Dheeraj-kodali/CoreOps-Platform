@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.base_service import BaseService
 from app.services.template_engine import TemplateEngine
 from app.services.meta_whatsapp_service import MetaWhatsAppService
+from app.services.n8n_whatsapp_service import N8NWhatsAppService
 from app.repositories.communication_repository import CommunicationRepository
 from app.repositories.message_template_repository import MessageTemplateRepository
 from app.repositories.message_history_repository import MessageHistoryRepository
@@ -154,7 +155,7 @@ class CommunicationService(BaseService):
         rendered_message = self.engine.render(template.message, context)
 
         history_data = {
-            "visitor_id": visitor_id,
+            "visitor_id": None,
             "phone": phone,
             "message": rendered_message,
             "message_type": message_type,
@@ -163,7 +164,16 @@ class CommunicationService(BaseService):
             "error_message": None,
         }
 
-        if settings.mode == "META_CLOUD_API":
+        if settings.mode == "N8N_AUTOMATION":
+            n8n_service = N8NWhatsAppService(settings)
+            success, n8n_msg_id, error = await n8n_service.send_message(
+                phone, rendered_message, message_type=message_type, extra_params=context
+            )
+            history_data["status"] = "SENT" if success else "FAILED"
+            history_data["meta_message_id"] = n8n_msg_id
+            history_data["error_message"] = error
+
+        elif settings.mode == "META_CLOUD_API":
             meta_service = MetaWhatsAppService(settings)
             success, meta_msg_id, error = await meta_service.send_message(
                 phone, rendered_message
@@ -200,10 +210,17 @@ class CommunicationService(BaseService):
             template_text = template.message if template else f"Test message for {template_type}"
             rendered = self.engine.preview(template_text)
 
-        meta_service = MetaWhatsAppService(settings)
-        success, meta_msg_id, error_msg, http_status = await meta_service.send_message(
-            recipient_phone, rendered
-        )
+        if settings.mode == "N8N_AUTOMATION":
+            n8n_service = N8NWhatsAppService(settings)
+            success, meta_msg_id, error_msg = await n8n_service.send_message(
+                recipient_phone, rendered, message_type=f"TEST_{template_type}"
+            )
+            http_status = 200 if success else 400
+        else:
+            meta_service = MetaWhatsAppService(settings)
+            success, meta_msg_id, error_msg, http_status = await meta_service.send_message(
+                recipient_phone, rendered
+            )
 
         status_str = "SENT" if success else "FAILED"
 

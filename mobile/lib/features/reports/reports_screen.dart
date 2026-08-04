@@ -47,7 +47,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     final totalCount = _visitors.length;
     final totalMembers = _visitors.fold<int>(0, (sum, v) => sum + v.personsCount);
-    final insideCount = _visitors.where((v) => v.status == 'CHECKED_IN').fold<int>(0, (sum, v) => sum + v.personsCount);
+    final insideCount = _visitors.where((v) => v.status == 'CHECKED_IN' || v.status == 'INSIDE').fold<int>(0, (sum, v) => sum + v.personsCount);
     final leftCount = _visitors.where((v) => v.status == 'CHECKED_OUT').fold<int>(0, (sum, v) => sum + v.personsCount);
 
     pdf.addPage(
@@ -284,7 +284,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     final totalVisits = _visitors.length;
     final totalDevotees = _visitors.fold<int>(0, (sum, v) => sum + v.personsCount);
-    final insideDevotees = _visitors.where((v) => v.status == 'CHECKED_IN').fold<int>(0, (sum, v) => sum + v.personsCount);
+    final insideDevotees = _visitors.where((v) => v.status == 'CHECKED_IN' || v.status == 'INSIDE').fold<int>(0, (sum, v) => sum + v.personsCount);
     final completedDevotees = _visitors.where((v) => v.status == 'CHECKED_OUT').fold<int>(0, (sum, v) => sum + v.personsCount);
 
     return Scaffold(

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:temple_visitor_app/core/theme/app_theme.dart';
 import 'package:temple_visitor_app/core/localization/app_localizations.dart';
 import 'package:temple_visitor_app/core/services/storage_service.dart';
+import 'package:temple_visitor_app/core/services/central_sync_manager.dart';
 import 'package:temple_visitor_app/features/authentication/auth_provider.dart';
 import 'package:temple_visitor_app/features/authentication/login_screen.dart';
 import 'package:temple_visitor_app/features/visitors/visitor_registration_screen.dart';
@@ -100,7 +101,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFFD4AF37)),
             onPressed: () {
-              _listKey.currentState?.loadTodayVisitors();
+              CentralSyncManager.instance.triggerSync(
+                type: SyncEventType.pullToRefresh,
+                reason: 'AppBar Manual Refresh',
+              );
             },
             tooltip: 'Refresh Today List',
           ),
@@ -116,7 +120,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         children: [
           VisitorRegistrationScreen(
             onVisitorAdded: () {
-              _listKey.currentState?.loadTodayVisitors();
+              CentralSyncManager.instance.triggerSync(
+                type: SyncEventType.registration,
+                reason: 'Visitor Added Navigation Switch',
+              );
               setState(() => _currentIndex = 1); // Auto switch to Today's Visitor List tab
             },
           ),

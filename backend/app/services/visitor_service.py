@@ -157,25 +157,26 @@ class VisitorService(BaseService[VisitSession]):
 
         # Trigger background ENTRY notification
         try:
-            from app.services.communication_service import CommunicationService
-            comm_service = CommunicationService(self.db)
-            await comm_service.prepare_and_record_message(
-                visitor_id=synced_session.id,
-                phone=profile.phone_number,
-                message_type="ENTRY",
-                context={
-                    "name": profile.name,
-                    "phone": profile.phone_number,
-                    "date": str(synced_session.visit_date),
-                    "time": str(synced_session.check_in_time),
-                    "duration": "N/A",
-                    "visitor_id": profile.visitor_id,
-                    "temple": "Sri Kalki Seva Alayam",
-                    "volunteer": current_user.full_name or current_user.username,
-                },
-            )
-        except Exception:
-            pass
+            async with self.db.begin_nested():
+                from app.services.communication_service import CommunicationService
+                comm_service = CommunicationService(self.db)
+                await comm_service.prepare_and_record_message(
+                    visitor_id=None,
+                    phone=profile.phone_number,
+                    message_type="ENTRY",
+                    context={
+                        "name": profile.name,
+                        "phone": profile.phone_number,
+                        "date": str(synced_session.visit_date),
+                        "time": str(synced_session.check_in_time),
+                        "duration": "N/A",
+                        "visitor_id": profile.visitor_id,
+                        "temple": "Sri Kalki Seva Alayam",
+                        "volunteer": current_user.full_name or current_user.username,
+                    },
+                )
+        except Exception as e:
+            logger.error(f"ENTRY notification failed silently: {e}")
 
         # Broadcast real-time WebSocket & Redis PubSub event
         try:
@@ -294,26 +295,28 @@ class VisitorService(BaseService[VisitSession]):
 
         # Trigger EXIT WhatsApp message
         try:
-            from app.services.communication_service import CommunicationService
-            comm_service = CommunicationService(self.db)
-            profile = refreshed.visitor_profile
-            await comm_service.prepare_and_record_message(
-                visitor_id=refreshed.id,
-                phone=profile.phone_number,
-                message_type="EXIT",
-                context={
-                    "name": profile.name,
-                    "phone": profile.phone_number,
-                    "date": str(refreshed.visit_date),
-                    "time": str(now_time),
-                    "duration": str(dur_str),
-                    "visitor_id": profile.visitor_id,
-                    "temple": "Sri Kalki Seva Alayam",
-                    "volunteer": current_user.full_name or current_user.username if current_user else "Volunteer",
-                },
-            )
-        except Exception:
-            pass
+            async with self.db.begin_nested():
+                from app.services.communication_service import CommunicationService
+                comm_service = CommunicationService(self.db)
+                profile = refreshed.visitor_profile
+                if profile:
+                    await comm_service.prepare_and_record_message(
+                        visitor_id=None,
+                        phone=profile.phone_number,
+                        message_type="EXIT",
+                        context={
+                            "name": profile.name,
+                            "phone": profile.phone_number,
+                            "date": str(refreshed.visit_date),
+                            "time": str(now_time),
+                            "duration": str(dur_str),
+                            "visitor_id": profile.visitor_id,
+                            "temple": "Sri Kalki Seva Alayam",
+                            "volunteer": current_user.full_name or current_user.username if current_user else "Volunteer",
+                        },
+                    )
+        except Exception as e:
+            logger.error(f"EXIT notification failed silently: {e}")
 
         # Broadcast real-time CHECKED_OUT event
         try:

@@ -7,16 +7,17 @@ class CommunicationSetting(BaseModel):
     __tablename__ = "communication_settings"
 
     mode = Column(
-        String(20),
+        String(25),
         nullable=False,
-        default="DISABLED",
+        default="N8N_AUTOMATION",
         index=True,
-    )  # MANUAL_WHATSAPP, META_CLOUD_API, DISABLED
+    )  # MANUAL_WHATSAPP, META_CLOUD_API, N8N_AUTOMATION, DISABLED
     access_token = Column(Text, nullable=True)
     phone_number_id = Column(String(50), nullable=True)
     business_account_id = Column(String(50), nullable=True)
     verify_token = Column(String(100), nullable=True)
-    auto_send = Column(Boolean, default=False, nullable=False)
+    n8n_webhook_url = Column(Text, nullable=True)
+    auto_send = Column(Boolean, default=True, nullable=False)
     allow_edit = Column(Boolean, default=False, nullable=False)
     save_history = Column(Boolean, default=True, nullable=False)
     retry_failed = Column(Boolean, default=False, nullable=False)

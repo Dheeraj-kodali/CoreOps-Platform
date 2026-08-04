@@ -25,8 +25,8 @@ class RoleAssignmentRequest(BaseModel):
 async def list_users(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(require_permission("users:read"))],
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, ge=1, le=500),
+    skip: Annotated[int, Query(default=0, ge=0)] = 0,
+    limit: Annotated[int, Query(default=100, ge=1, le=500)] = 100,
     role_name: Optional[str] = None,
 ):
     stmt = (

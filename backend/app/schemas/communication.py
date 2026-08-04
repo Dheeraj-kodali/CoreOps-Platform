@@ -6,13 +6,14 @@ from pydantic import BaseModel, Field, ConfigDict
 class CommunicationSettingsUpdate(BaseModel):
     mode: str = Field(
         ...,
-        pattern="^(MANUAL_WHATSAPP|META_CLOUD_API|DISABLED)$",
+        pattern="^(MANUAL_WHATSAPP|META_CLOUD_API|N8N_AUTOMATION|DISABLED)$",
         description="Communication mode",
     )
     access_token: Optional[str] = None
     phone_number_id: Optional[str] = None
     business_account_id: Optional[str] = None
     verify_token: Optional[str] = None
+    n8n_webhook_url: Optional[str] = None
     auto_send: bool = False
     allow_edit: bool = False
     save_history: bool = True
@@ -29,6 +30,7 @@ class CommunicationSettingsResponse(BaseModel):
     phone_number_id: Optional[str] = None
     business_account_id: Optional[str] = None
     verify_token: Optional[str] = None
+    n8n_webhook_url: Optional[str] = None
     auto_send: bool
     allow_edit: bool
     save_history: bool
@@ -48,6 +50,7 @@ class CommunicationSettingsResponse(BaseModel):
             phone_number_id=obj.phone_number_id,
             business_account_id=obj.business_account_id,
             verify_token=obj.verify_token,
+            n8n_webhook_url=getattr(obj, 'n8n_webhook_url', 'https://n8n.kalkiseva.org/webhook/whatsapp-send'),
             auto_send=obj.auto_send,
             allow_edit=obj.allow_edit,
             save_history=obj.save_history,

@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     SMS_API_KEY: str = "mock_sms_api_key"
     WHATSAPP_GATEWAY_URL: str = "https://graph.facebook.com/v18.0/me/messages"
     WHATSAPP_ACCESS_TOKEN: str = "mock_whatsapp_token"
+    N8N_WHATSAPP_WEBHOOK_URL: str = "https://n8n.kalkiseva.org/webhook/whatsapp-send"
+    N8N_API_KEY: str = "n8n_mock_api_key"
 
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [

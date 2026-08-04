@@ -210,6 +210,13 @@ export default function DailyVisitLedgerPage() {
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       fetchDailyLedgers();
+
+      // Smart 10s fallback polling interval for instant APK sync
+      const interval = setInterval(() => {
+        fetchDailyLedgers();
+      }, 10000);
+
+      return () => clearInterval(interval);
     }
   }, [authLoading, isAuthenticated, fetchDailyLedgers]);
 

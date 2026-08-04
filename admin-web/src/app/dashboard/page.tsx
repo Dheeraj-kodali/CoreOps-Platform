@@ -96,6 +96,13 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       loadLiveDashboardData();
+
+      // Smart 10s fallback polling interval for instant APK sync
+      const interval = setInterval(() => {
+        loadLiveDashboardData();
+      }, 10000);
+
+      return () => clearInterval(interval);
     }
   }, [authLoading, isAuthenticated, loadLiveDashboardData]);
 

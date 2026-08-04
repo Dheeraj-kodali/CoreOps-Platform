@@ -25,12 +25,13 @@ class CommunicationRepository(BaseRepository[CommunicationSetting]):
             return existing
 
         defaults = {
-            "mode": "DISABLED",
+            "mode": "N8N_AUTOMATION",
             "access_token": None,
             "phone_number_id": None,
             "business_account_id": None,
             "verify_token": None,
-            "auto_send": False,
+            "n8n_webhook_url": "https://n8n.kalkiseva.org/webhook/whatsapp-send",
+            "auto_send": True,
             "allow_edit": False,
             "save_history": True,
             "retry_failed": False,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:temple_visitor_app/core/repositories/visitor_repository.dart';
 import 'package:temple_visitor_app/core/services/communication_service.dart';
-import 'package:temple_visitor_app/core/services/location_service.dart';
 import 'package:temple_visitor_app/core/database/sqlite_database.dart';
 import 'package:temple_visitor_app/models/communication_models.dart';
 import 'package:temple_visitor_app/models/person_model.dart';
@@ -23,19 +22,14 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
   final _phoneController = TextEditingController();
   final _villageController = TextEditingController();
   final _notesController = TextEditingController();
+  final _customPurposeController = TextEditingController();
 
   String _selectedPurpose = 'General Darshan';
   int _membersCount = 1;
   bool _isSubmitting = false;
 
-  // Location State Variables
-  double? _latitude;
-  double? _longitude;
-  bool _isAcquiringLocation = false;
-  String? _locationErrorMessage;
-  bool _isLocationPermanentlyDenied = false;
-
   PersonModel? _matchedPerson;
+  bool _isAutoFilled = false;
 
   final List<String> _purposes = [
     'General Darshan',
@@ -43,36 +37,13 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
     'Voluntary Work',
     'Annadanam',
     'Donation / Prasadam',
+    'Other',
   ];
 
   @override
   void initState() {
     super.initState();
     _phoneController.addListener(_onPhoneChanged);
-    _acquireGpsLocation();
-  }
-
-  Future<void> _acquireGpsLocation() async {
-    setState(() {
-      _isAcquiringLocation = true;
-      _locationErrorMessage = null;
-      _isLocationPermanentlyDenied = false;
-    });
-
-    final result = await LocationService.getCurrentLocation();
-
-    if (mounted) {
-      setState(() {
-        _isAcquiringLocation = false;
-        if (result.isSuccess) {
-          _latitude = result.latitude;
-          _longitude = result.longitude;
-        } else {
-          _locationErrorMessage = result.errorMessage;
-          _isLocationPermanentlyDenied = result.isPermanentlyDenied;
-        }
-      });
-    }
   }
 
   @override
@@ -82,29 +53,57 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
     _phoneController.dispose();
     _villageController.dispose();
     _notesController.dispose();
+    _customPurposeController.dispose();
     super.dispose();
   }
 
   Future<void> _onPhoneChanged() async {
     final phone = _phoneController.text.trim();
     if (phone.length >= 5) {
-      final person = await _repository.getPersonByPhone(phone);
+      var person = await _repository.getPersonByPhone(phone);
+
+      // Perform remote API phone lookup if local record not found
+      if (person == null && phone.length >= 10) {
+        try {
+          final remoteResp = await _repository.lookupPhone(phone);
+          if (remoteResp != null && (remoteResp['profile_exists'] == true || remoteResp['profile'] != null)) {
+            final prof = remoteResp['profile'];
+            final lastV = remoteResp['last_visit'];
+            if (prof != null) {
+              person = PersonModel(
+                personId: prof['id']?.toString() ?? '',
+                name: prof['name']?.toString() ?? '',
+                phone: prof['phone_number']?.toString() ?? phone,
+                village: prof['village']?.toString() ?? prof['city']?.toString() ?? 'Local',
+                firstVisit: lastV?['first_visit']?.toString() ?? 'Today',
+                lastVisit: lastV?['last_visit_date']?.toString() ?? 'Recently',
+                totalVisits: lastV?['total_visits'] != null ? int.tryParse(lastV['total_visits'].toString()) ?? 1 : 1,
+                createdAt: DateTime.now().toIso8601String(),
+                updatedAt: DateTime.now().toIso8601String(),
+              );
+            }
+          }
+        } catch (_) {}
+      }
+
       if (mounted) {
         setState(() {
           _matchedPerson = person;
           if (person != null) {
-            // Auto-fill details if matching person found
-            if (_nameController.text.isEmpty) {
-              _nameController.text = person.name;
-            }
-            if (_villageController.text.isEmpty) {
-              _villageController.text = person.village;
-            }
+            _isAutoFilled = true;
+            // Google Password Manager Style Auto-fill into editable fields
+            _nameController.text = person.name;
+            _villageController.text = person.village;
+          } else {
+            _isAutoFilled = false;
           }
         });
       }
     } else if (_matchedPerson != null) {
-      setState(() => _matchedPerson = null);
+      setState(() {
+        _matchedPerson = null;
+        _isAutoFilled = false;
+      });
     }
   }
 
@@ -113,16 +112,18 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
 
     setState(() => _isSubmitting = true);
 
+    final finalPurpose = _selectedPurpose == 'Other'
+        ? _customPurposeController.text.trim()
+        : _selectedPurpose;
+
     try {
       final visitorModel = await _repository.registerVisitor(
         name: _nameController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
         village: _villageController.text.trim(),
-        purpose: _selectedPurpose,
+        purpose: finalPurpose,
         personsCount: _membersCount,
         notes: _notesController.text.trim(),
-        latitude: _latitude,
-        longitude: _longitude,
       );
 
       if (!mounted) return;
@@ -302,31 +303,31 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Repeat Visitor Recognition Badge
+            // Repeat Visitor Recognition Banner (Google Password Manager Style Auto-Fill)
             if (_matchedPerson != null) ...[
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD4AF37).withOpacity(0.12),
+                  color: Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFD4AF37)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.verified_user, color: Color(0xFFD4AF37), size: 28),
+                    const Icon(Icons.vpn_key_rounded, color: Color(0xFFD4AF37), size: 28),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '👤 Repeat Visitor Found!',
+                            '🔑 Auto-Filled Repeat Visitor Profile',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.brown.shade900),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Total Visits: ${_matchedPerson!.totalVisits}  •  Last Visit: ${_matchedPerson!.lastVisit.split(' ')[0]}',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
+                            'Matched ${_matchedPerson!.name} (${_matchedPerson!.totalVisits} previous visits). All fields below remain fully editable.',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black87),
                           ),
                         ],
                       ),
@@ -337,13 +338,14 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
               const SizedBox(height: 14),
             ],
 
-            // Visitor Name (Required)
+            // Visitor Name (Required - Fully Editable)
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
                 labelText: 'Visitor Name *',
                 prefixIcon: Icon(Icons.person, color: Color(0xFFD4AF37)),
                 border: OutlineInputBorder(),
+                helperText: 'Editable for profile updates',
               ),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Visitor Name is required';
@@ -352,13 +354,14 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
             ),
             const SizedBox(height: 14),
 
-            // Village (Required)
+            // Village / City (Required - Fully Editable)
             TextFormField(
               controller: _villageController,
               decoration: const InputDecoration(
                 labelText: 'Village / City *',
                 prefixIcon: Icon(Icons.location_city, color: Color(0xFFD4AF37)),
                 border: OutlineInputBorder(),
+                helperText: 'Editable for profile updates',
               ),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Village is required';
@@ -382,6 +385,26 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
                 if (v != null) setState(() => _selectedPurpose = v);
               },
             ),
+
+            // Custom Purpose Field (Only shown when "Other" is selected)
+            if (_selectedPurpose == 'Other') ...[
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _customPurposeController,
+                decoration: const InputDecoration(
+                  labelText: 'Specify Custom Purpose *',
+                  hintText: 'e.g. Marriage Blessing, Archana, Special Darshan',
+                  prefixIcon: Icon(Icons.edit_note, color: Color(0xFFD4AF37)),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) {
+                  if (_selectedPurpose == 'Other' && (v == null || v.trim().isEmpty)) {
+                    return 'Please specify custom purpose';
+                  }
+                  return null;
+                },
+              ),
+            ],
             const SizedBox(height: 14),
 
             // Number of Members (Must be >= 1)
@@ -432,8 +455,6 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
-            _buildLocationCard(),
             const SizedBox(height: 20),
 
             // Large Reception-Friendly "VISITOR ENTERED" Button
@@ -460,120 +481,5 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
       ),
     );
   }
-
-  Widget _buildLocationCard() {
-    if (_isAcquiringLocation) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.amber.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.amber.shade400),
-        ),
-        child: const Row(
-          children: [
-            SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFFD4AF37)),
-            ),
-            SizedBox(width: 12),
-            Text(
-              'Acquiring GPS location...',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_latitude != null && _longitude != null) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.green.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.green.shade600),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.location_on, color: Colors.green, size: 24),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '📍 Device GPS Location Captured',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
-                  ),
-                  Text(
-                    'Coordinates: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
-                    style: const TextStyle(fontSize: 12, color: Colors.black87),
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.green, size: 20),
-              onPressed: _acquireGpsLocation,
-              tooltip: 'Refresh Location',
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.orange.shade600),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 22),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _locationErrorMessage ?? 'GPS location required for visitor entry',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.brown),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange.shade700,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                ),
-                icon: const Icon(Icons.my_location, size: 16),
-                label: const Text('RETRY LOCATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                onPressed: _acquireGpsLocation,
-              ),
-              if (_isLocationPermanentlyDenied) ...[
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  ),
-                  icon: const Icon(Icons.settings, size: 16),
-                  label: const Text('APP SETTINGS', style: TextStyle(fontSize: 11)),
-                  onPressed: () => LocationService.openSettings(),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
+

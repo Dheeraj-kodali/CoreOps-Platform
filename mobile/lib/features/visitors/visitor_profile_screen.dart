@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:temple_visitor_app/core/repositories/visitor_repository.dart';
+import 'package:temple_visitor_app/core/services/central_sync_manager.dart';
 import 'package:temple_visitor_app/models/person_model.dart';
 import 'package:temple_visitor_app/models/visit_model.dart';
 
@@ -14,6 +16,7 @@ class VisitorProfileScreen extends StatefulWidget {
 
 class _VisitorProfileScreenState extends State<VisitorProfileScreen> {
   final VisitorRepository _repository = VisitorRepository();
+  StreamSubscription? _syncSub;
   PersonModel? _person;
   List<VisitModel> _visits = [];
   bool _isLoading = true;
@@ -22,6 +25,15 @@ class _VisitorProfileScreenState extends State<VisitorProfileScreen> {
   void initState() {
     super.initState();
     _loadProfile();
+    _syncSub = CentralSyncManager.instance.onSyncCompleted.listen((_) {
+      _loadProfile();
+    });
+  }
+
+  @override
+  void dispose() {
+    _syncSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadProfile() async {
@@ -139,7 +151,7 @@ class _VisitorProfileScreenState extends State<VisitorProfileScreen> {
                         itemCount: _visits.length,
                         itemBuilder: (context, index) {
                           final visit = _visits[index];
-                          final isInside = visit.status == 'CHECKED_IN';
+                          final isInside = visit.status == 'CHECKED_IN' || visit.status == 'INSIDE';
 
                           return Card(
                             margin: const EdgeInsets.symmetric(vertical: 6),

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:temple_visitor_app/core/localization/app_localizations.dart';
 import 'package:temple_visitor_app/core/repositories/visitor_repository.dart';
 import 'package:temple_visitor_app/core/services/websocket_service.dart';
+import 'package:temple_visitor_app/core/services/central_sync_manager.dart';
 import 'package:temple_visitor_app/widgets/shared/stat_card.dart';
 import 'package:temple_visitor_app/widgets/shared/temple_app_bar.dart';
 
@@ -19,7 +20,7 @@ class HomeDashboardScreen extends ConsumerStatefulWidget {
 
 class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   final VisitorRepository _repository = VisitorRepository();
-  StreamSubscription? _wsSubscription;
+  StreamSubscription? _syncSubscription;
   Map<String, dynamic> _stats = {
     'total_visitors': 0,
     'visitors_inside': 0,
@@ -31,14 +32,14 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   void initState() {
     super.initState();
     _loadLiveStats();
-    _wsSubscription = WebSocketService().onEvent.listen((_) {
+    _syncSubscription = CentralSyncManager.instance.onSyncCompleted.listen((_) {
       _loadLiveStats();
     });
   }
 
   @override
   void dispose() {
-    _wsSubscription?.cancel();
+    _syncSubscription?.cancel();
     super.dispose();
   }
 

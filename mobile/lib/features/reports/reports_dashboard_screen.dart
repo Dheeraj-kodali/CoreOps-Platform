@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:temple_visitor_app/core/database/sqlite_database.dart';
+import 'package:temple_visitor_app/core/services/central_sync_manager.dart';
 import 'package:temple_visitor_app/core/services/export_service.dart';
 import 'package:temple_visitor_app/models/visitor_model.dart';
 import 'package:temple_visitor_app/core/repositories/visitor_repository.dart';
@@ -13,6 +15,7 @@ class ReportsDashboardScreen extends StatefulWidget {
 }
 
 class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
+  StreamSubscription? _syncSub;
   String _selectedTab = 'TODAY'; // 'TODAY', 'WEEKLY', 'MONTHLY', 'CUSTOM'
 
   DateTime _startDate = DateTime.now();
@@ -35,6 +38,15 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
   void initState() {
     super.initState();
     _loadReportData();
+    _syncSub = CentralSyncManager.instance.onSyncCompleted.listen((_) {
+      _loadReportData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _syncSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadReportData() async {
@@ -104,7 +116,7 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
     // Compute Summary Statistics
     final totalCount = filtered.length;
     final totalMembers = filtered.fold<int>(0, (sum, v) => sum + v.personsCount);
-    final insideCount = filtered.where((v) => v.status == 'CHECKED_IN').fold<int>(0, (sum, v) => sum + v.personsCount);
+    final insideCount = filtered.where((v) => v.status == 'CHECKED_IN' || v.status == 'INSIDE').fold<int>(0, (sum, v) => sum + v.personsCount);
     final leftCount = filtered.where((v) => v.status == 'CHECKED_OUT').fold<int>(0, (sum, v) => sum + v.personsCount);
 
     // Purpose & Village frequency maps

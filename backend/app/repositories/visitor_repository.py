@@ -21,13 +21,26 @@ class VisitorRepository(BaseRepository[VisitSession]):
 
     async def get_profile_by_phone(self, phone_number: str) -> Optional[VisitorProfile]:
         clean_phone = phone_number.strip()
+        raw_digits = "".join(filter(str.isdigit, clean_phone))
+        phone_variants = list(set([
+            clean_phone,
+            f"+{raw_digits}",
+            f"+91{raw_digits[-10:]}" if len(raw_digits) >= 10 else clean_phone,
+            raw_digits[-10:] if len(raw_digits) >= 10 else clean_phone
+        ]))
+
         stmt = (
             select(VisitorProfile)
             .options(selectinload(VisitorProfile.village), selectinload(VisitorProfile.default_purpose))
-            .filter(VisitorProfile.phone_number == clean_phone, VisitorProfile.is_deleted.is_(False))
+            .filter(VisitorProfile.phone_number.in_(phone_variants))
         )
         res = await self.session.execute(stmt)
-        return res.scalars().first()
+        profile = res.scalars().first()
+        if profile and profile.is_deleted:
+            profile.is_deleted = False
+            profile.deleted_at = None
+            await self.session.flush()
+        return profile
 
     async def get_profile_by_id(self, profile_id: str) -> Optional[VisitorProfile]:
         stmt = (

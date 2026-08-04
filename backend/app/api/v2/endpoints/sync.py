@@ -1,3 +1,4 @@
+from typing import Annotated
 import gzip
 import json
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -18,8 +19,8 @@ router = APIRouter()
 @router.post("/upload", response_model=BatchUploadResponse)
 async def batch_upload_v2(
     request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     """v2 Delta Sync Batch Upload Endpoint.
     
@@ -71,8 +72,8 @@ async def batch_upload_v2(
 async def delta_download_v2(
     download_request: DeltaDownloadRequest,
     request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     """v2 Delta Sync Incremental Download Endpoint.
     

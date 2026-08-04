@@ -44,7 +44,7 @@ class _VisitorDetailDialogState extends State<VisitorDetailDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isCheckedIn = widget.visitor.status == 'CHECKED_IN';
+    final isCheckedIn = widget.visitor.status == 'CHECKED_IN' || widget.visitor.status == 'INSIDE';
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

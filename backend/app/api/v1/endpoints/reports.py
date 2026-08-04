@@ -292,7 +292,7 @@ async def get_audit_logs(
 async def export_reports(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-    export_format: str = Query(..., alias="format", pattern="^(csv|excel|pdf)$"),
+    export_format: Annotated[str, Query(alias="format", pattern="^(csv|excel|pdf)$")],
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     purpose_id: Optional[str] = None,

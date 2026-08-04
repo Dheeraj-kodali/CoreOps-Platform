@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:temple_visitor_app/core/repositories/sync_repository.dart';
-import 'package:temple_visitor_app/core/services/connectivity_service.dart';
-import 'package:temple_visitor_app/core/services/websocket_service.dart';
+import 'package:temple_visitor_app/core/services/central_sync_manager.dart';
 
 final syncRepositoryProvider = Provider((ref) => SyncRepository());
 
@@ -36,36 +35,20 @@ class SyncState {
 
 class SyncNotifier extends StateNotifier<SyncState> {
   final SyncRepository _repo;
-  final ConnectivityService _connectivity = ConnectivityService();
-  StreamSubscription<bool>? _connectivitySub;
-  Timer? _autoSyncTimer;
+  StreamSubscription<CentralSyncState>? _centralSub;
 
   SyncNotifier(this._repo) : super(SyncState(pendingCount: 0, isSyncing: false)) {
     refreshQueueCount();
-    _initAutoSync();
+    _subscribeCentral();
   }
 
-  void _initAutoSync() {
-    // 1. Connect Real-Time WebSocket Service
-    WebSocketService().connect();
-
-    // 2. Listen to connectivity changes: when coming back online, auto-sync outbox queue
-    _connectivitySub = _connectivity.onConnectivityChanged.listen((isOnline) {
-      if (isOnline) {
-        triggerManualSync();
-      }
-    });
-
-    // 3. Periodic 5-second auto-sync timer when pending items exist
-    _autoSyncTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
-      final count = await _repo.getPendingCount();
-      state = state.copyWith(pendingCount: count);
-      if (count > 0 && !state.isSyncing) {
-        final online = await _connectivity.isOnline();
-        if (online) {
-          triggerManualSync();
-        }
-      }
+  void _subscribeCentral() {
+    _centralSub = CentralSyncManager.instance.stream.listen((centralState) {
+      state = state.copyWith(
+        pendingCount: centralState.pendingCount,
+        isSyncing: centralState.isSyncing,
+        lastMessage: centralState.lastMessage,
+      );
     });
   }
 
@@ -75,21 +58,15 @@ class SyncNotifier extends StateNotifier<SyncState> {
   }
 
   Future<bool> triggerManualSync() async {
-    if (state.isSyncing) return false;
-    state = state.copyWith(isSyncing: true, lastMessage: null);
-    final success = await _repo.processSyncQueue();
-    await refreshQueueCount();
-    state = state.copyWith(
-      isSyncing: false,
-      lastMessage: success ? 'Synchronization complete!' : 'Sync failed. Will retry automatically when online.',
+    return await CentralSyncManager.instance.triggerSync(
+      type: SyncEventType.pullToRefresh,
+      reason: 'User Manual Sync Trigger',
     );
-    return success;
   }
 
   @override
   void dispose() {
-    _connectivitySub?.cancel();
-    _autoSyncTimer?.cancel();
+    _centralSub?.cancel();
     super.dispose();
   }
 }

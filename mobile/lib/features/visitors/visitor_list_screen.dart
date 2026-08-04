@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:temple_visitor_app/core/repositories/visitor_repository.dart';
-import 'package:temple_visitor_app/core/services/websocket_service.dart';
+import 'package:temple_visitor_app/core/services/central_sync_manager.dart';
 import 'package:temple_visitor_app/models/visitor_model.dart';
 import 'package:temple_visitor_app/features/visitors/visitor_detail_dialog.dart';
 import 'package:temple_visitor_app/features/visitors/visitor_left_confirmation_dialog.dart';
@@ -16,7 +16,7 @@ class VisitorListScreen extends StatefulWidget {
 class VisitorListScreenState extends State<VisitorListScreen> {
   final _repository = VisitorRepository();
   final _searchController = TextEditingController();
-  StreamSubscription? _wsSubscription;
+  StreamSubscription? _syncSubscription;
 
   List<VisitorModel> _visitors = [];
   Map<String, dynamic> _stats = {
@@ -33,14 +33,14 @@ class VisitorListScreenState extends State<VisitorListScreen> {
   void initState() {
     super.initState();
     loadTodayVisitors();
-    _wsSubscription = WebSocketService().onEvent.listen((_) {
+    _syncSubscription = CentralSyncManager.instance.onSyncCompleted.listen((_) {
       loadTodayVisitors();
     });
   }
 
   @override
   void dispose() {
-    _wsSubscription?.cancel();
+    _syncSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -190,7 +190,7 @@ class VisitorListScreenState extends State<VisitorListScreen> {
                         itemCount: _visitors.length,
                         itemBuilder: (context, index) {
                           final v = _visitors[index];
-                          final isInside = v.status == 'CHECKED_IN';
+                          final isInside = v.status == 'CHECKED_IN' || v.status == 'INSIDE';
 
                           return Card(
                             margin: const EdgeInsets.symmetric(vertical: 5),

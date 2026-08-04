@@ -1,0 +1,113 @@
+{
+  "name": "Sri Kalki Seva Alayam - Business WhatsApp Automation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-send",
+        "options": {}
+      },
+      "name": "n8n Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "phone",
+              "value": "={{$json[\"body\"][\"recipient_phone\"]}}"
+            },
+            {
+              "name": "message",
+              "value": "={{$json[\"body\"][\"message_text\"]}}"
+            },
+            {
+              "name": "type",
+              "value": "={{$json[\"body\"][\"message_type\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Extract Message Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://graph.facebook.com/v18.0/YOUR_PHONE_NUMBER_ID/messages",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{$json[\"phone\"]}}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"body\": \"{{$json[\"message\"]}}\"\n  }\n}"
+      },
+      "name": "Send WhatsApp Business Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        710,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"queued\",\n  \"success\": true,\n  \"recipient\": \"{{$json[\"phone\"]}}\",\n  \"timestamp\": \"{{$now.toISOString()}}\"\n}"
+      },
+      "name": "Return Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        940,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "n8n Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Message Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Message Data": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Business Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Business Message": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {}
+}

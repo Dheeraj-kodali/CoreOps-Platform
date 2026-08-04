@@ -348,12 +348,12 @@ class SQLiteDatabase {
         await db.execute('''
           CREATE TABLE IF NOT EXISTS communication_settings (
             id TEXT PRIMARY KEY,
-            mode TEXT NOT NULL DEFAULT 'DISABLED',
+            mode TEXT NOT NULL DEFAULT 'N8N_AUTOMATION',
             access_token TEXT,
             phone_number_id TEXT,
             business_account_id TEXT,
             verify_token TEXT,
-            auto_send INTEGER NOT NULL DEFAULT 0,
+            auto_send INTEGER NOT NULL DEFAULT 1,
             allow_edit INTEGER NOT NULL DEFAULT 1,
             save_history INTEGER NOT NULL DEFAULT 1,
             retry_failed INTEGER NOT NULL DEFAULT 1,
@@ -366,16 +366,16 @@ class SQLiteDatabase {
       if (commSettings.isEmpty) {
         await db.insert('communication_settings', {
           'id': 'comm_settings_default',
-          'mode': 'DISABLED',
-          'access_token': null,
+          'mode': 'N8N_AUTOMATION',
+          'access_token': 'https://n8n.kalkiseva.org/webhook/whatsapp-send',
           'phone_number_id': null,
           'business_account_id': null,
           'verify_token': null,
-          'auto_send': 0,
+          'auto_send': 1,
           'allow_edit': 1,
           'save_history': 1,
           'retry_failed': 1,
-          'updated_at': now,
+          'updated_at': DateTime.now().toIso8601String(),
         });
       }
 
@@ -851,11 +851,14 @@ class SQLiteDatabase {
         'name': cleanName,
         'phone_number': cleanPhone,
         'village': cleanVillage,
+        'village_name_custom': cleanVillage,
         'purpose': purpose,
+        'purpose_id': '2711c039-457a-430b-8c4b-06aab787d042',
         'persons_count': groupMembers,
         'notes': notes,
         'visitor_date': dateStr,
         'time_in': timeStr,
+        'visitor_time': timeStr.length == 5 ? '$timeStr:00' : timeStr,
         'status': 'CHECKED_IN',
       };
 
@@ -914,11 +917,14 @@ class SQLiteDatabase {
     }
 
     if (statusFilter != null && statusFilter != 'ALL') {
-      String sqlStatus = statusFilter;
-      if (statusFilter == 'INSIDE') sqlStatus = 'CHECKED_IN';
-      if (statusFilter == 'COMPLETED') sqlStatus = 'CHECKED_OUT';
-      sql += ' AND v.status = ?';
-      args.add(sqlStatus);
+      if (statusFilter == 'INSIDE' || statusFilter == 'CHECKED_IN') {
+        sql += " AND (v.status = 'INSIDE' OR v.status = 'CHECKED_IN')";
+      } else if (statusFilter == 'COMPLETED' || statusFilter == 'CHECKED_OUT') {
+        sql += " AND (v.status = 'CHECKED_OUT' OR v.status = 'AUTO_CLOSED')";
+      } else {
+        sql += " AND v.status = ?";
+        args.add(statusFilter);
+      }
     }
 
     if (searchQuery != null && searchQuery.isNotEmpty) {

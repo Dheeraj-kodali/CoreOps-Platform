@@ -28,7 +28,7 @@ class VisitorCheckoutRequest(BaseModel):
 async def lookup_phone(
     service: Annotated[VisitorService, Depends(get_visitor_service)],
     current_user: Annotated[User, Depends(get_current_user)],
-    phone_number: str = Query(..., min_length=5, max_length=20),
+    phone_number: Annotated[str, Query(min_length=5, max_length=20)],
 ):
     """
     Search Visitor Profile by Phone Number for Reception Auto-Fill Flow.
@@ -110,9 +110,9 @@ async def list_visitors(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     volunteer_id: Optional[str] = None,
-    status_filter: Optional[str] = Query(default=None, alias="status"),
-    page: int = Query(default=1, ge=1),
-    limit: int = Query(default=20, ge=1, le=100),
+    status_filter: Annotated[Optional[str], Query(default=None, alias="status")] = None,
+    page: Annotated[int, Query(default=1, ge=1)] = 1,
+    limit: Annotated[int, Query(default=20, ge=1, le=100)] = 20,
 ):
     """
     List Visit Sessions with filtering by Date Range, Status (INSIDE, CHECKED_OUT, AUTO_CLOSED), Purpose, Volunteer, and Search.
@@ -142,8 +142,8 @@ async def list_daily_ledgers(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     search: Optional[str] = None,
-    status_filter: Optional[str] = Query(default=None, alias="status"),
-    limit: int = Query(default=20, ge=1, le=100),
+    status_filter: Annotated[Optional[str], Query(default=None, alias="status")] = None,
+    limit: Annotated[int, Query(default=20, ge=1, le=100)] = 20,
 ):
     """
     Daily Visit Ledger Endpoint:
@@ -282,7 +282,7 @@ async def checkout_visitor(
     visitor_id: str,
     service: Annotated[VisitorService, Depends(get_visitor_service)],
     current_user: Annotated[User, Depends(get_current_user)],
-    payload: Optional[VisitorCheckoutRequest] = Body(default=None),
+    payload: Annotated[Optional[VisitorCheckoutRequest], Body()] = None,
 ):
     try:
         c_time = payload.checkout_time if payload else None

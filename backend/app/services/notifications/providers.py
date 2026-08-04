@@ -42,16 +42,27 @@ class SMSNotificationProvider(BaseNotificationProvider):
 
 
 class WhatsAppNotificationProvider(BaseNotificationProvider):
-    """WhatsApp Business Cloud API Driver."""
+    """WhatsApp Business Automation Driver (n8n Webhook / Meta Cloud API)."""
 
     @property
     def channel_name(self) -> str:
         return "WHATSAPP"
 
     async def send(self, payload: NotificationPayload) -> bool:
-        logger.info(f"[WhatsApp Provider Driver] Dispatching WhatsApp Template '{payload.template_name}' to {payload.recipient}")
-        # Call Meta Cloud API Graph Endpoint
-        return True
+        logger.info(f"[WhatsApp Provider Driver] Dispatching WhatsApp Template '{payload.template_name}' to {payload.recipient} via n8n Automation")
+        try:
+            from app.services.n8n_whatsapp_service import N8NWhatsAppService
+            driver = N8NWhatsAppService()
+            success, _, _ = await driver.send_message(
+                recipient_phone=payload.recipient,
+                message_text=payload.body,
+                message_type="NOTIFICATION",
+                extra_params={"template": payload.template_name, "context": payload.context}
+            )
+            return success
+        except Exception as e:
+            logger.error(f"[WhatsApp Provider Driver] Error: {e}")
+            return False
 
 
 class EmailNotificationProvider(BaseNotificationProvider):

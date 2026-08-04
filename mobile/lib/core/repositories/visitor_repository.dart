@@ -2,7 +2,7 @@ import 'package:uuid/uuid.dart';
 import 'package:dio/dio.dart';
 import 'package:temple_visitor_app/core/database/sqlite_database.dart';
 import 'package:temple_visitor_app/core/network/api_client.dart';
-import 'package:temple_visitor_app/core/repositories/sync_repository.dart';
+import 'package:temple_visitor_app/core/services/central_sync_manager.dart';
 import 'package:temple_visitor_app/core/services/communication_service.dart';
 import 'package:temple_visitor_app/core/services/storage_service.dart';
 import 'package:temple_visitor_app/models/visitor_model.dart';
@@ -98,8 +98,6 @@ class VisitorRepository {
     required String purpose,
     required int personsCount,
     String? notes,
-    double? latitude,
-    double? longitude,
   }) async {
     final now = DateTime.now();
     final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -134,8 +132,11 @@ class VisitorRepository {
     // Dispatch WhatsApp Check-In Message
     _commService.sendCheckInMessage(visitorModel);
 
-    // Trigger Outbox Transmission to Render FastAPI & Neon DB
-    SyncRepository().processSyncQueue().catchError((_) => false);
+    // Trigger Centralized Sync Manager to process outbox, fetch ledgers, and refresh all app screens
+    CentralSyncManager.instance.triggerSync(
+      type: SyncEventType.registration,
+      reason: 'Visitor Registration Completed',
+    );
 
     return visitorModel;
   }
@@ -195,6 +196,19 @@ class VisitorRepository {
       statusFilter: statusFilter,
     );
     return rows.map((r) => VisitorModel.fromJson(r)).toList();
+  }
+
+  /// Perform Phone Lookup via Remote Render FastAPI Backend
+  Future<Map<String, dynamic>?> lookupPhone(String phone) async {
+    try {
+      final authHeader = await _getAuthHeader();
+      final options = authHeader != null ? Options(headers: {'Authorization': authHeader}) : null;
+      final res = await _dio.get('/visitors/lookup-phone', queryParameters: {'phone_number': phone}, options: options);
+      if (res.statusCode == 200 && res.data != null) {
+        return Map<String, dynamic>.from(res.data);
+      }
+    } catch (_) {}
+    return null;
   }
 
   /// Get real-time Statistics for Today's Dashboard Header
@@ -295,8 +309,11 @@ class VisitorRepository {
 
     await SQLiteDatabase.checkOutVisitor(id, timeOutStr, durationStr);
 
-    // Trigger Outbox Transmission for Checkout Event to Render Backend
-    SyncRepository().processSyncQueue().catchError((_) => false);
+    // Trigger Centralized Sync Manager for Checkout Event
+    CentralSyncManager.instance.triggerSync(
+      type: SyncEventType.checkout,
+      reason: 'Visitor Checkout Completed',
+    );
 
     final updatedRaw = await SQLiteDatabase.getVisitorById(id);
     if (updatedRaw != null) {
