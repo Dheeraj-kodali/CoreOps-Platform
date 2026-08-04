@@ -165,23 +165,17 @@ async def list_broadcasts(
 async def create_broadcast(
     payload: BroadcastCreateRequest,
     current_user: User = Depends(get_current_user),
+    service: CommunicationService = Depends(get_communication_service),
 ):
-    new_bc = {
-        "id": f"bc-{Date.now() if 'Date' in globals() else '2001'}",
-        "title": payload.title,
-        "message": payload.message,
-        "channel": payload.channel,
-        "recipients_type": payload.recipients_type,
-        "recipient_count": 142 if payload.recipients_type == "TODAY" else 38,
-        "delivered": 142 if not payload.scheduled_at else 0,
-        "failed": 0,
-        "pending": 0 if not payload.scheduled_at else 142,
-        "status": "COMPLETED" if not payload.scheduled_at else "SCHEDULED",
-        "created_by": getattr(current_user, "username", "admin"),
-        "created_at": "Just now",
-    }
-    DEMO_BROADCASTS.insert(0, new_bc)
-    return new_bc
+    result = await service.send_broadcast_to_recipients(
+        title=payload.title,
+        custom_message=payload.message,
+        recipients_type=payload.recipients_type,
+        purpose_id=payload.purpose_id,
+        created_by=getattr(current_user, "username", "admin"),
+    )
+    DEMO_BROADCASTS.insert(0, result)
+    return result
 
 
 @router.delete("/broadcasts/{broadcast_id}")

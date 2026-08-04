@@ -244,3 +244,117 @@ class CommunicationService(BaseService):
             "http_status": http_status,
             "rendered_message": rendered,
         }
+
+    async def send_broadcast_to_recipients(
+        self,
+        title: str,
+        custom_message: str,
+        recipients_type: str = "ALL_VISITORS",
+        purpose_id: Optional[str] = None,
+        created_by: str = "admin",
+    ) -> dict:
+        """
+        Query all registered visitor profiles up to now, filter target phone numbers,
+        and dispatch the user-defined broadcast message to every selected visitor.
+        """
+        from datetime import date, datetime, timezone
+        from sqlalchemy.future import select
+        from app.models.visitor_profile import VisitorProfile
+        from app.models.visit_session import VisitSession
+
+        # 1. Query target visitor profiles
+        if recipients_type == "INSIDE":
+            stmt = (
+                select(VisitorProfile)
+                .join(VisitSession, VisitSession.visitor_profile_id == VisitorProfile.id)
+                .filter(VisitSession.visit_date == date.today(), VisitSession.status == "INSIDE", VisitorProfile.is_deleted.is_(False))
+            )
+            res = await self.db.execute(stmt)
+            profiles = list(res.scalars().all())
+        elif recipients_type == "TODAY":
+            stmt = (
+                select(VisitorProfile)
+                .join(VisitSession, VisitSession.visitor_profile_id == VisitorProfile.id)
+                .filter(VisitSession.visit_date == date.today(), VisitorProfile.is_deleted.is_(False))
+            )
+            res = await self.db.execute(stmt)
+            profiles = list(res.scalars().all())
+        elif recipients_type == "PURPOSE" and purpose_id:
+            stmt = (
+                select(VisitorProfile)
+                .join(VisitSession, VisitSession.visitor_profile_id == VisitorProfile.id)
+                .filter(VisitSession.purpose_id == purpose_id, VisitorProfile.is_deleted.is_(False))
+            )
+            res = await self.db.execute(stmt)
+            profiles = list(res.scalars().all())
+        else:
+            stmt = select(VisitorProfile).filter(VisitorProfile.is_deleted.is_(False))
+            res = await self.db.execute(stmt)
+            profiles = list(res.scalars().all())
+
+        # 2. Extract unique non-empty phone numbers
+        recipients_map = {}
+        for p in profiles:
+            if p.phone_number and p.phone_number.strip():
+                recipients_map[p.phone_number.strip()] = p
+
+        settings = await self.get_settings()
+        n8n_service = N8NWhatsAppService(settings) if settings.mode == "N8N_AUTOMATION" else None
+        meta_service = MetaWhatsAppService(settings) if settings.mode == "META_CLOUD_API" else None
+
+        delivered_count = 0
+        failed_count = 0
+
+        for phone, prof in recipients_map.items():
+            context = {
+                "name": prof.name,
+                "phone": phone,
+                "temple": "Sri Kalki Seva Alayam",
+            }
+            rendered = self.engine.render(custom_message, context)
+
+            success = True
+            msg_id = None
+            err = None
+
+            if settings.mode == "N8N_AUTOMATION" and n8n_service:
+                success, msg_id, err = await n8n_service.send_message(
+                    phone, rendered, message_type="BROADCAST", extra_params=context
+                )
+            elif settings.mode == "META_CLOUD_API" and meta_service:
+                success, msg_id, err = await meta_service.send_message(phone, rendered)
+
+            if success:
+                delivered_count += 1
+            else:
+                failed_count += 1
+
+            if settings.save_history:
+                try:
+                    await self.history_repo.create_entry({
+                        "visitor_id": None,
+                        "phone": phone,
+                        "message": rendered,
+                        "message_type": "BROADCAST",
+                        "status": "SENT" if success else "FAILED",
+                        "meta_message_id": msg_id,
+                        "error_message": err,
+                    })
+                except Exception:
+                    pass
+
+        if settings.save_history:
+            await self.commit()
+
+        return {
+            "title": title,
+            "message": custom_message,
+            "recipients_type": recipients_type,
+            "recipient_count": len(recipients_map),
+            "delivered": delivered_count,
+            "failed": failed_count,
+            "pending": 0,
+            "status": "COMPLETED",
+            "created_by": created_by,
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+        }
