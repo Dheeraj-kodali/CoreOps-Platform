@@ -30,8 +30,8 @@ async def list_templates(
 async def list_logs(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-    page: Annotated[int, Query(default=1, ge=1)] = 1,
-    limit: Annotated[int, Query(default=20, ge=1, le=100)] = 20,
+    page: Annotated[int, Query(ge=1)] = 1,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     stmt = select(NotificationLog).order_by(NotificationLog.created_at.desc())
     count_stmt = select(func.count(NotificationLog.id))

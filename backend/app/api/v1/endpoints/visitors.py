@@ -9,7 +9,8 @@ from app.services.visitor_service import VisitorService
 from app.schemas.visitor import (
     VisitSessionCreate, VisitorProfileUpdate, VisitorResponse, VisitorListResponse,
     PhoneLookupResponse, VisitorProfileResponse, VisitorUpdate,
-    DailyLedgerResponse, DailyLedgerListResponse, DailyLedgerSummary
+    DailyLedgerResponse, DailyLedgerListResponse, DailyLedgerSummary,
+    PurposeResponse, VillageResponse
 )
 
 router = APIRouter()
@@ -113,9 +114,9 @@ async def list_visitors(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     volunteer_id: Optional[str] = None,
-    status_filter: Annotated[Optional[str], Query(default=None, alias="status")] = None,
-    page: Annotated[int, Query(default=1, ge=1)] = 1,
-    limit: Annotated[int, Query(default=20, ge=1, le=100)] = 20,
+    status_filter: Annotated[Optional[str], Query(alias="status")] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     """
     List Visit Sessions with filtering by Date Range, Status (INSIDE, CHECKED_OUT, AUTO_CLOSED), Purpose, Volunteer, and Search.
@@ -145,8 +146,8 @@ async def list_daily_ledgers(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     search: Optional[str] = None,
-    status_filter: Annotated[Optional[str], Query(default=None, alias="status")] = None,
-    limit: Annotated[int, Query(default=20, ge=1, le=100)] = 20,
+    status_filter: Annotated[Optional[str], Query(alias="status")] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     """
     Daily Visit Ledger Endpoint:
