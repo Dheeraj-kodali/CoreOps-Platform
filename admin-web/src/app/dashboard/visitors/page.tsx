@@ -349,7 +349,22 @@ export default function DailyVisitLedgerPage() {
       const worksheet = XLSX.utils.aoa_to_sheet(dataRows);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Daily Visit Ledgers");
-      XLSX.writeFile(workbook, `daily_visit_ledger_${dateFilter.toLowerCase()}_${Date.now()}.xlsx`);
+      
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+      const excelBlob = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const filename = `daily_visit_ledger_${dateFilter.toLowerCase()}_${Date.now()}.xlsx`;
+      const blobUrl = URL.createObjectURL(excelBlob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }, 200);
     } catch (err) {
       console.error("Excel export error:", err);
       handleExportCSV();
@@ -439,7 +454,18 @@ export default function DailyVisitLedgerPage() {
         startY = (doc as any).lastAutoTable.finalY + 10;
       });
 
-      doc.save(`daily_visit_ledger_report_${Date.now()}.pdf`);
+      const pdfBlob = doc.output("blob");
+      const filename = `daily_visit_ledger_report_${dateFilter.toLowerCase()}_${Date.now()}.pdf`;
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }, 200);
     } catch (err) {
       console.error("PDF export error:", err);
       alert("Could not generate PDF file. Please try again.");
