@@ -64,13 +64,13 @@ class SyncRepository {
       }
 
       // 1. Fetch backend default purpose ID
-      String purposeId = '2711c039-457a-430b-8c4b-06aab787d042';
+      String? purposeId;
       try {
-        final purpRes = await _dio.get('/analytics/purpose-breakdown');
+        final purpRes = await _dio.get('/visitors/purposes');
         if (purpRes.statusCode == 200 && purpRes.data != null) {
-          final breakdown = purpRes.data['breakdown'] as List?;
-          if (breakdown != null && breakdown.isNotEmpty) {
-            purposeId = breakdown[0]['purpose_id'] ?? purposeId;
+          final list = purpRes.data as List?;
+          if (list != null && list.isNotEmpty) {
+            purposeId = list[0]['id']?.toString();
           }
         }
       } catch (_) {}
@@ -92,7 +92,7 @@ class SyncRepository {
         final visitorDate = visitorMap['visitor_date']?.toString() ?? DateTime.now().toIso8601String().split('T')[0];
         final timeIn = visitorMap['time_in']?.toString() ?? '10:00:00';
 
-        final payload = {
+        final Map<String, dynamic> payload = {
           'visitor_uuid': visitorUuid.isNotEmpty ? visitorUuid : visitorId,
           'name': name,
           'phone_number': phone,
@@ -100,11 +100,13 @@ class SyncRepository {
           'age': 30,
           'village_name_custom': village,
           'persons_count': count,
-          'purpose_id': purposeId,
           'visitor_date': visitorDate.contains('T') ? visitorDate.split('T')[0] : visitorDate,
           'visitor_time': timeIn.length == 5 ? '$timeIn:00' : timeIn,
           'notes': notes,
         };
+        if (purposeId != null && purposeId.isNotEmpty) {
+          payload['purpose_id'] = purposeId;
+        }
 
         try {
           AppLogger.info('Posting visitor $name ($visitorUuid) to Render backend...');
@@ -172,7 +174,7 @@ class SyncRepository {
               if (!payload.containsKey('village_name_custom') || payload['village_name_custom'] == null) {
                 payload['village_name_custom'] = payload['village']?.toString() ?? 'Local';
               }
-              if (!payload.containsKey('purpose_id') || payload['purpose_id'] == null) {
+              if (purposeId != null && purposeId.isNotEmpty && (!payload.containsKey('purpose_id') || payload['purpose_id'] == null)) {
                 payload['purpose_id'] = purposeId;
               }
               AppLogger.info('Posting sync_queue visitor event $qId (${payload['name']}) to Render backend...');

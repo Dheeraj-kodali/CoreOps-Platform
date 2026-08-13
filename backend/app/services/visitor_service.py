@@ -124,12 +124,29 @@ class VisitorService(BaseService[VisitSession]):
 
         # 2. Create Visit Session
         purpose_id = payload.purpose_id
+        from sqlalchemy import select
+        from app.models.purpose import Purpose
+        if purpose_id:
+            p_check = await self.db.execute(select(Purpose.id).filter(Purpose.id == str(purpose_id), Purpose.is_deleted.is_(False)))
+            if not p_check.scalars().first():
+                purpose_id = None
+
         if not purpose_id:
-            from sqlalchemy import select
-            from app.models.purpose import Purpose
             p_res = await self.db.execute(select(Purpose.id).filter(Purpose.is_deleted.is_(False)))
             first_p = p_res.scalars().first()
-            purpose_id = first_p or "3ef2daff-d716-4285-ac7c-81e702530b44"
+            if not first_p:
+                default_p = Purpose(
+                    id="3ef2daff-d716-4285-ac7c-81e702530b44",
+                    temple_id="SKSA_MAIN",
+                    name_en="General Darshan",
+                    name_te="సాధారణ దర్శనం",
+                    code="DARSHAN_GENERAL",
+                )
+                self.db.add(default_p)
+                await self.db.flush()
+                purpose_id = default_p.id
+            else:
+                purpose_id = first_p
 
         session_data = {
             "id": session_uuid,
