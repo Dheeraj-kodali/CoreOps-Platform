@@ -166,20 +166,41 @@ async def seed_communication_defaults():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    await seed_initial_data()
-    await seed_communication_defaults()
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        print(f"[Lifespan DB Error] {e}")
+
+    try:
+        await seed_initial_data()
+        await seed_communication_defaults()
+    except Exception as e:
+        print(f"[Lifespan Seed Error] {e}")
     
-    # Start production background scheduler & Redis Pub/Sub event bus
-    global_scheduler.start()
-    from app.core.websocket import websocket_manager
-    await websocket_manager.start_redis_pubsub()
+    try:
+        global_scheduler.start()
+    except Exception as e:
+        print(f"[Lifespan Scheduler Error] {e}")
+
+    try:
+        from app.core.websocket import websocket_manager
+        await websocket_manager.start_redis_pubsub()
+    except Exception as e:
+        print(f"[Lifespan Redis Error] {e}")
 
     yield
 
-    await websocket_manager.stop_redis_pubsub()
-    global_scheduler.stop()
+    try:
+        from app.core.websocket import websocket_manager
+        await websocket_manager.stop_redis_pubsub()
+    except Exception:
+        pass
+
+    try:
+        global_scheduler.stop()
+    except Exception:
+        pass
 
 
 app = FastAPI(
