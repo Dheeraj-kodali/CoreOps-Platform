@@ -28,6 +28,8 @@ import {
   PieChart,
   UserCheck2,
   TrendingUp,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -313,6 +315,118 @@ export default function DailyVisitLedgerPage() {
     }
   };
 
+  const handleExportExcel = async () => {
+    try {
+      const XLSX = await import("xlsx");
+      const headers = [
+        "Ledger Date", "Session ID", "Visitor Name", "Phone", "Persons Count", "Purpose",
+        "Check-In", "Check-Out", "Duration", "Status", "Volunteer", "Sync State", "GPS Available", "Read-Only Ledger"
+      ];
+      const dataRows: (string | number)[][] = [headers];
+
+      filteredLedgers.forEach((ledger) => {
+        ledger.sessions.forEach((s) => {
+          dataRows.push([
+            ledger.date,
+            s.id,
+            s.name,
+            s.phone_number || s.phone || "",
+            s.persons_count || 1,
+            s.purpose?.name_en || s.purpose_name || "General Darshan",
+            s.check_in_time || s.visitor_time || "",
+            s.check_out_time || (s.status === "AUTO_CLOSED" ? "23:59:59 (Auto)" : "N/A"),
+            s.duration || (s.status === "INSIDE" ? "Ongoing" : "Completed"),
+            s.status || "INSIDE",
+            s.volunteer_name || s.volunteer_id || "admin",
+            s.sync_status || "SYNCED",
+            s.latitude ? "YES" : "NO",
+            ledger.summary.is_read_only ? "YES (Read-Only)" : "NO (Active Today)",
+          ]);
+        });
+      });
+
+      const worksheet = XLSX.utils.aoa_to_sheet(dataRows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Daily Visit Ledgers");
+      XLSX.writeFile(workbook, `daily_visit_ledger_${dateFilter.toLowerCase()}_${Date.now()}.xlsx`);
+    } catch (err) {
+      console.error("Excel export error:", err);
+      handleExportCSV();
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+      doc.setFontSize(16);
+      doc.setTextColor(30, 41, 59);
+      doc.text("Sri Kalki Seva Alayam - Daily Visit Ledgers Report", 14, 15);
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Generated on: ${new Date().toLocaleString()} | Filter: ${dateFilter} | Total Visitors: ${overallTotals.visitors}`, 14, 22);
+
+      let yPos = 30;
+
+      filteredLedgers.forEach((ledger) => {
+        if (yPos > 175) {
+          doc.addPage();
+          yPos = 15;
+        }
+
+        doc.setFontSize(11);
+        doc.setTextColor(217, 119, 6);
+        doc.text(`Ledger Date: ${ledger.summary.display_date || ledger.date} (Total: ${ledger.summary.total_visitors}, Inside: ${ledger.summary.people_inside}, Checked Out: ${ledger.summary.checked_out})`, 14, yPos);
+        yPos += 7;
+
+        // Table Header
+        doc.setFontSize(8.5);
+        doc.setTextColor(255, 255, 255);
+        doc.setFillColor(30, 41, 59);
+        doc.rect(14, yPos, 269, 6.5, "F");
+        doc.text("Visitor Name", 16, yPos + 4.5);
+        doc.text("Phone", 65, yPos + 4.5);
+        doc.text("Count", 105, yPos + 4.5);
+        doc.text("Purpose", 125, yPos + 4.5);
+        doc.text("Check-In", 175, yPos + 4.5);
+        doc.text("Check-Out", 210, yPos + 4.5);
+        doc.text("Status", 248, yPos + 4.5);
+        yPos += 8.5;
+
+        doc.setFontSize(8);
+        doc.setTextColor(51, 65, 85);
+
+        ledger.sessions.forEach((s, sIdx) => {
+          if (yPos > 185) {
+            doc.addPage();
+            yPos = 15;
+          }
+          if (sIdx % 2 === 1) {
+            doc.setFillColor(241, 245, 249);
+            doc.rect(14, yPos - 3.5, 269, 5.5, "F");
+          }
+          doc.text(String(s.name || "Visitor").slice(0, 24), 16, yPos);
+          doc.text(String(s.phone_number || s.phone || "N/A"), 65, yPos);
+          doc.text(String(s.persons_count || 1), 105, yPos);
+          doc.text(String(s.purpose?.name_en || s.purpose_name || "General Darshan").slice(0, 26), 125, yPos);
+          doc.text(String(s.check_in_time || s.visitor_time || "N/A"), 175, yPos);
+          doc.text(String(s.check_out_time || "N/A"), 210, yPos);
+          doc.text(String(s.status || "INSIDE"), 248, yPos);
+          yPos += 5.5;
+        });
+
+        yPos += 5;
+      });
+
+      doc.save(`daily_visit_ledger_report_${Date.now()}.pdf`);
+    } catch (err) {
+      console.error("PDF export error:", err);
+      window.print();
+    }
+  };
+
   const handleExportCSV = () => {
     const headers = [
       "Ledger Date", "Session ID", "Visitor Name", "Phone", "Persons Count", "Purpose",
@@ -379,11 +493,30 @@ export default function DailyVisitLedgerPage() {
           </button>
 
           <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 hover:text-white hover:bg-emerald-900/90 text-xs font-semibold transition-all shadow-md"
+            title="Export Ledgers as Excel (.xlsx)"
+          >
+            <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
+            Export Excel (.xlsx)
+          </button>
+
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-950/80 border border-rose-800/60 text-rose-300 hover:text-white hover:bg-rose-900/90 text-xs font-semibold transition-all shadow-md"
+            title="Export Ledgers as PDF Report (.pdf)"
+          >
+            <FileText className="h-4 w-4 text-rose-400" />
+            Export PDF (.pdf)
+          </button>
+
+          <button
             onClick={handleExportCSV}
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-semibold transition-all"
+            title="Export Ledgers as CSV (.csv)"
           >
-            <Download className="h-4 w-4 text-emerald-400" />
-            Export Ledgers CSV
+            <Download className="h-4 w-4 text-slate-400" />
+            CSV
           </button>
 
           <button
@@ -391,7 +524,7 @@ export default function DailyVisitLedgerPage() {
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-semibold transition-all"
           >
             <Printer className="h-4 w-4 text-amber-400" />
-            Print Ledger Report
+            Print
           </button>
         </div>
       </div>
