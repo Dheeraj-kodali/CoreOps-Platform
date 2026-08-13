@@ -93,7 +93,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: true };
     } catch (err: any) {
       console.warn("Backend authentication failed:", err?.response?.data || err?.message);
-      const errorMessage = err?.response?.data?.detail || "Invalid username or password";
+      let errorMessage = "Invalid username or password";
+      if (err.code === "ECONNABORTED" || err.message?.includes("timeout")) {
+        errorMessage = "Backend server is warming up from cold start. Please click Sign In again in 5 seconds.";
+      } else if (err?.response?.data?.detail) {
+        errorMessage = typeof err.response.data.detail === "string" 
+          ? err.response.data.detail 
+          : "Authentication failed. Please check your credentials.";
+      } else if (!err?.response) {
+        errorMessage = "Cannot connect to server. Please check your internet connection or try again shortly.";
+      }
       return { success: false, error: errorMessage };
     }
   };
