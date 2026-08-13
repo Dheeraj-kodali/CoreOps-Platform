@@ -1141,19 +1141,206 @@ class SQLiteDatabase {
     if (results.isNotEmpty) return results.first;
     final defaultMap = {
       'id': 'comm_settings_default',
-      'mode': 'DISABLED',
-      'access_token': null,
+      'mode': 'N8N_AUTOMATION',
+      'access_token': 'https://dheerajk.app.n8n.cloud/webhook/temple-whatsapp',
       'phone_number_id': null,
       'business_account_id': null,
       'verify_token': null,
-      'auto_send': 0,
+      'auto_send': 1,
       'allow_edit': 0,
       'save_history': 1,
-      'retry_failed': 0,
+      'retry_failed': 1,
       'updated_at': DateTime.now().toIso8601String(),
     };
     await db.insert('communication_settings', defaultMap, conflictAlgorithm: ConflictAlgorithm.replace);
     return defaultMap;
+  }
+
+  static Future<List<Map<String, String>>> getAllUniqueDevoteeContacts({String? villageFilter}) async {
+    final db = await instance;
+    
+    String personsQuery = 'SELECT DISTINCT phone, name, village FROM persons WHERE phone IS NOT NULL AND phone != ""';
+    List<dynamic> personsArgs = [];
+    if (villageFilter != null && villageFilter.isNotEmpty && villageFilter != 'ALL') {
+      personsQuery += ' AND village = ?';
+      personsArgs.add(villageFilter);
+    }
+    final personsRows = await db.rawQuery(personsQuery, personsArgs);
+
+    String visitorsQuery = 'SELECT DISTINCT phone_number as phone, name, village FROM visitors WHERE phone_number IS NOT NULL AND phone_number != ""';
+    List<dynamic> visitorsArgs = [];
+    if (villageFilter != null && villageFilter.isNotEmpty && villageFilter != 'ALL') {
+      visitorsQuery += ' AND village = ?';
+      visitorsArgs.add(villageFilter);
+    }
+    final visitorsRows = await db.rawQuery(visitorsQuery, visitorsArgs);
+
+    final map = <String, Map<String, String>>{};
+
+    for (var r in personsRows) {
+      final p = r['phone']?.toString().trim();
+      if (p != null && p.isNotEmpty) {
+        map[p] = {
+          'phone': p,
+          'name': r['name']?.toString() ?? 'Devotee',
+          'village': r['village']?.toString() ?? '',
+        };
+      }
+    }
+
+    for (var r in visitorsRows) {
+      final p = r['phone_number']?.toString().trim();
+      if (p != null && p.isNotEmpty && !map.containsKey(p)) {
+        map[p] = {
+          'phone': p,
+          'name': r['name']?.toString() ?? 'Devotee',
+          'village': r['village']?.toString() ?? '',
+        };
+      }
+    }
+
+    return map.values.toList();
+  }
+
+  static Future<List<String>> getAllUniqueVillages() async {
+    final db = await instance;
+    final rows = await db.rawQuery('SELECT DISTINCT village FROM persons WHERE village IS NOT NULL AND village != ""');
+    final rows2 = await db.rawQuery('SELECT DISTINCT village FROM visitors WHERE village IS NOT NULL AND village != ""');
+    final set = <String>{};
+    for (var r in rows) {
+      if (r['village'] != null && r['village'].toString().trim().isNotEmpty) {
+        set.add(r['village'].toString().trim());
+      }
+    }
+    for (var r in rows2) {
+      if (r['village'] != null && r['village'].toString().trim().isNotEmpty) {
+        set.add(r['village'].toString().trim());
+      }
+    }
+    final list = set.toList()..sort();
+    return list;
+  }
+
+  /// Permanently clear all historical visitor data, reset counts to 0
+  static Future<void> clearAllVisitorData() async {
+    final db = await instance;
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS system_flags (
+        flag_key TEXT PRIMARY KEY,
+        flag_value TEXT NOT NULL
+      )
+    ''');
+    final nowIso = DateTime.now().toIso8601String();
+    await db.transaction((txn) async {
+      await txn.delete('visits');
+      await txn.delete('visitors');
+      await txn.delete('persons');
+      await txn.delete('sync_queue');
+      await txn.delete('communication_history');
+      await txn.insert(
+        'system_flags',
+        {'flag_key': 'data_cleared_at', 'flag_value': nowIso},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  static Future<String?> getDataClearedAt() async {
+    try {
+      final db = await instance;
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS system_flags (
+          flag_key TEXT PRIMARY KEY,
+          flag_value TEXT NOT NULL
+        )
+      ''');
+      final res = await db.query('system_flags', where: 'flag_key = ?', whereArgs: ['data_cleared_at']);
+      if (res.isNotEmpty) {
+        return res.first['flag_value']?.toString();
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Insert remote synced session from backend without queuing outbox items (prevents feedback loops)
+  static Future<void> insertRemoteSyncedVisitor({
+    required String id,
+    required String name,
+    required String phone,
+    required String village,
+    required String purpose,
+    required int groupMembers,
+    String? notes,
+    required String status,
+  }) async {
+    final db = await instance;
+    final cleanPhone = phone.trim();
+    final cleanName = name.trim();
+    final cleanVillage = village.trim();
+    final now = DateTime.now();
+    final dateStr = now.toIso8601String().split('T')[0];
+    final timeStr = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+    final checkInTimestamp = "$dateStr $timeStr";
+
+    await db.transaction((txn) async {
+      final existingPerson = await txn.query('persons', where: 'phone = ?', whereArgs: [cleanPhone]);
+      String personId;
+
+      if (existingPerson.isEmpty) {
+        personId = _uuid.v4();
+        await txn.insert('persons', {
+          'person_id': personId,
+          'name': cleanName,
+          'phone': cleanPhone,
+          'village': cleanVillage,
+          'first_visit': checkInTimestamp,
+          'last_visit': checkInTimestamp,
+          'total_visits': 1,
+          'created_at': now.toIso8601String(),
+          'updated_at': now.toIso8601String(),
+        });
+      } else {
+        personId = existingPerson.first['person_id'].toString();
+      }
+
+      await txn.insert(
+        'visits',
+        {
+          'visit_id': id,
+          'person_id': personId,
+          'check_in': checkInTimestamp,
+          'purpose': purpose,
+          'group_members': groupMembers,
+          'notes': notes,
+          'status': status,
+          'created_at': now.toIso8601String(),
+          'updated_at': now.toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+
+      await txn.insert(
+        'visitors',
+        {
+          'id': id,
+          'visitor_uuid': id,
+          'name': cleanName,
+          'phone_number': cleanPhone,
+          'village': cleanVillage,
+          'purpose': purpose,
+          'persons_count': groupMembers,
+          'notes': notes,
+          'visitor_date': dateStr,
+          'time_in': timeStr,
+          'status': status,
+          'sync_status': 'SYNCED',
+          'is_deleted': 0,
+          'created_at': now.toIso8601String(),
+          'updated_at': now.toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    });
   }
 
   static Future<int> saveCommunicationSettings(Map<String, dynamic> settings) async {

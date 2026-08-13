@@ -48,9 +48,13 @@ class MetaWhatsAppService:
 
     def build_text_payload(self, recipient_phone: str, message_text: str) -> Dict[str, Any]:
         """Construct standard text message payload according to Meta Graph API spec."""
-        clean_phone = recipient_phone.replace(" ", "").replace("-", "")
+        clean_phone = recipient_phone.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
         if clean_phone.startswith("+"):
             clean_phone = clean_phone[1:]
+        if clean_phone.startswith("0") and len(clean_phone) > 10:
+            clean_phone = clean_phone[1:]
+        if len(clean_phone) == 10:
+            clean_phone = f"91{clean_phone}"
 
         return {
             "messaging_product": "whatsapp",

@@ -192,6 +192,7 @@ export default function DashboardPage() {
           </div>
 
           <button
+            type="button"
             onClick={loadLiveDashboardData}
             disabled={loading}
             className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all disabled:opacity-50"
@@ -204,11 +205,11 @@ export default function DashboardPage() {
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {cards.map((card, i) => {
+        {cards.map((card) => {
           const Icon = card.icon;
           return (
             <div
-              key={i}
+              key={card.title}
               className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br p-6 shadow-xl backdrop-blur-sm transition-all hover:scale-[1.01] ${card.color}`}
             >
               <div className="flex items-center justify-between mb-4">
@@ -264,7 +265,7 @@ export default function DashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 text-slate-200">
                   {recentVisitors.map((v, idx) => (
-                    <tr key={v.id || idx} className="hover:bg-slate-800/40 transition-colors">
+                    <tr key={v.id || `visitor-${idx}`} className="hover:bg-slate-800/40 transition-colors">
                       <td className="py-3 px-2 font-medium text-slate-100">{v.name}</td>
                       <td className="py-3 px-2 text-slate-400 font-mono">{v.phone_number || v.phone || "—"}</td>
                       <td className="py-3 px-2 font-semibold text-amber-400">{v.persons_count || 1} persons</td>
@@ -291,8 +292,8 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 {[
                   { name: "General Darshan", count: 0, pct: 100 },
-                ].map((item, idx) => (
-                  <div key={idx} className="space-y-1.5">
+                ].map((item) => (
+                  <div key={item.name} className="space-y-1.5">
                     <div className="flex justify-between text-xs font-semibold text-slate-300">
                       <span>{item.name}</span>
                       <span className="font-mono text-amber-400">{item.count} ({item.pct}%)</span>
@@ -309,7 +310,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 {purposeBreakdown.map((item, idx) => (
-                  <div key={idx} className="space-y-1.5">
+                  <div key={item.name || `purpose-${idx}`} className="space-y-1.5">
                     <div className="flex justify-between text-xs font-semibold text-slate-300">
                       <span>{item.name}</span>
                       <span className="font-mono text-amber-400">
@@ -349,8 +350,7 @@ export default function DashboardPage() {
             <h3 className="font-bold text-base text-white">System Operational Status</h3>
           </div>
           <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            OPERATIONAL
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />{" "}OPERATIONAL
           </span>
         </div>
 

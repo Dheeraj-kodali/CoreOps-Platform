@@ -7,6 +7,8 @@ import 'package:temple_visitor_app/core/services/app_logger.dart';
 import 'package:temple_visitor_app/core/services/connectivity_service.dart';
 import 'package:temple_visitor_app/core/services/websocket_service.dart';
 
+import 'package:temple_visitor_app/core/database/sqlite_database.dart';
+
 enum SyncEventType {
   registration,
   checkout,
@@ -171,8 +173,11 @@ class CentralSyncManager extends StateNotifier<CentralSyncState> with WidgetsBin
       await _visitorRepo.syncRemoteLedgerSessions();
 
       // Step 3: Fetch live production dashboard statistics
-      final liveStats = await _visitorRepo.fetchLiveDashboardStats();
       final localStats = await _visitorRepo.getTodayStatistics();
+      final clearedAtStr = await SQLiteDatabase.getDataClearedAt();
+      final liveStats = (clearedAtStr != null && (localStats['total_visitors'] ?? 0) == 0)
+          ? null
+          : await _visitorRepo.fetchLiveDashboardStats();
 
       final combinedStats = Map<String, dynamic>.from(localStats);
       if (liveStats != null) {
@@ -220,6 +225,32 @@ class CentralSyncManager extends StateNotifier<CentralSyncState> with WidgetsBin
       }
       return false;
     }
+  }
+
+  /// Reset statistics to 0 and notify all UI listeners after clearing data
+  void resetStatsToZero() {
+    final now = DateTime.now();
+    final zeroStats = {
+      'total_visitors': 0,
+      'visitors_inside': 0,
+      'visitors_left': 0,
+      'total_records': 0,
+      'average_duration_mins': 0,
+      'average_duration_formatted': '0 min',
+    };
+    state = state.copyWith(
+      isSyncing: false,
+      lastSyncTime: now,
+      todayStats: zeroStats,
+      lastMessage: 'All visitor data cleared and reset to 0.',
+    );
+    _syncEventController.add(SyncEvent(
+      type: SyncEventType.pullToRefresh,
+      reason: 'All visitor data cleared',
+      timestamp: now,
+      success: true,
+      extraData: zeroStats,
+    ));
   }
 
   @override

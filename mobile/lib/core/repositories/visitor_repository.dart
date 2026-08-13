@@ -34,6 +34,12 @@ class VisitorRepository {
   /// Pull remote today's ledger sessions from Render Backend & insert into local SQLite
   Future<void> syncRemoteLedgerSessions() async {
     try {
+      final clearedAtStr = await SQLiteDatabase.getDataClearedAt();
+      DateTime? clearedAt;
+      if (clearedAtStr != null) {
+        clearedAt = DateTime.tryParse(clearedAtStr);
+      }
+
       final authHeader = await _getAuthHeader();
       final options = authHeader != null ? Options(headers: {'Authorization': authHeader}) : null;
       final res = await _dio.get('/visitors/ledgers/today', options: options);
@@ -42,6 +48,16 @@ class VisitorRepository {
         for (var s in sessions) {
           final sId = s['id']?.toString() ?? s['visitor_uuid']?.toString() ?? '';
           if (sId.isEmpty) continue;
+
+          // If session creation time is before the data clear timestamp, skip pulling it
+          final sCreatedStr = s['created_at']?.toString();
+          if (clearedAt != null && sCreatedStr != null) {
+            final sCreated = DateTime.tryParse(sCreatedStr);
+            if (sCreated != null && sCreated.isBefore(clearedAt)) {
+              continue;
+            }
+          }
+
           final name = s['name']?.toString() ?? '';
           final phone = s['phone_number']?.toString() ?? '';
           if (phone == '9876543210' || name.contains('Sri Krishna Devotee')) continue;
@@ -51,15 +67,16 @@ class VisitorRepository {
           
           final existing = await SQLiteDatabase.getVisitorById(sId);
           if (existing == null) {
-            await SQLiteDatabase.registerVisit(
+            await SQLiteDatabase.insertRemoteSyncedVisitor(
+              id: sId,
               name: name,
               phone: phone,
               village: s['village_name_custom']?.toString() ?? '',
               purpose: s['purpose']?['name_en']?.toString() ?? 'General Darshan',
               groupMembers: pCount,
               notes: notes,
+              status: status,
             );
-            await SQLiteDatabase.markVisitorSynced(sId);
           }
         }
       }
@@ -129,9 +146,6 @@ class VisitorRepository {
       status: 'CHECKED_IN',
       syncStatus: 'PENDING',
     );
-
-    // Dispatch WhatsApp Check-In Message
-    _commService.sendCheckInMessage(visitorModel);
 
     // Trigger Centralized Sync Manager to process outbox, fetch ledgers, and refresh all app screens
     CentralSyncManager.instance.triggerSync(
@@ -219,7 +233,7 @@ class VisitorRepository {
 
   /// Get real-time Statistics for Today's Dashboard Header
   Future<Map<String, dynamic>> getTodayStatistics() async {
-    final liveStats = await fetchLiveDashboardStats();
+    var liveStats = await fetchLiveDashboardStats();
     final todayVisitors = await getTodayVisitors();
 
     int localRecords = todayVisitors.length;
@@ -231,6 +245,11 @@ class VisitorRepository {
     int totalMembers = localMembers;
     int insideCount = localInside;
     int leftCount = localLeft;
+
+    final clearedAtStr = await SQLiteDatabase.getDataClearedAt();
+    if (clearedAtStr != null && localRecords == 0) {
+      liveStats = null;
+    }
 
     if (liveStats != null) {
       final remoteVisitors = liveStats['todays_visitors'] as int? ?? 0;
@@ -331,5 +350,17 @@ class VisitorRepository {
     }
 
     return null;
+  }
+
+  /// Permanently wipe all visitor data and reset stats to zero
+  Future<void> clearAllVisitorData() async {
+    try {
+      final authHeader = await _getAuthHeader();
+      final options = authHeader != null ? Options(headers: {'Authorization': authHeader}) : null;
+      await _dio.post('/visitors/reset-all-data', options: options);
+    } catch (_) {}
+
+    await SQLiteDatabase.clearAllVisitorData();
+    CentralSyncManager.instance.resetStatsToZero();
   }
 }

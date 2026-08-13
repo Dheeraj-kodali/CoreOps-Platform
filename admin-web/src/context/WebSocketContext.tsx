@@ -5,7 +5,7 @@ import { useAuth } from "./AuthContext";
 
 interface WebSocketContextType {
   isConnected: boolean;
-  lastEvent: any | null;
+  lastEvent: Record<string, unknown> | null;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
 }
@@ -14,9 +14,9 @@ const WebSocketContext = createContext<WebSocketContextType | undefined>(undefin
 
 const PROD_WS_URL = "wss://coreops-platform.onrender.com/api/v1/ws";
 
-export function WebSocketProvider({ children }: { children: React.ReactNode }) {
+export function WebSocketProvider({ children }: Readonly<{ children: React.ReactNode }>) {
   const [isConnected, setIsConnected] = useState(false);
-  const [lastEvent, setLastEvent] = useState<any | null>(null);
+  const [lastEvent, setLastEvent] = useState<Record<string, unknown> | null>(null);
   const { isAuthenticated } = useAuth();
 
   const getWsUrl = useCallback(() => {
@@ -69,6 +69,10 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
   }, [getWsUrl]);
+
+  const disconnectWebSocket = useCallback(() => {
+    setIsConnected(false);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -131,15 +135,18 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     };
   }, [isAuthenticated, getWsUrl]);
 
+  const value = React.useMemo(
+    () => ({
+      isConnected,
+      lastEvent,
+      connectWebSocket,
+      disconnectWebSocket,
+    }),
+    [isConnected, lastEvent, connectWebSocket, disconnectWebSocket]
+  );
+
   return (
-    <WebSocketContext.Provider
-      value={{
-        isConnected,
-        lastEvent,
-        connectWebSocket,
-        disconnectWebSocket: () => setIsConnected(false),
-      }}
-    >
+    <WebSocketContext.Provider value={value}>
       {children}
     </WebSocketContext.Provider>
   );

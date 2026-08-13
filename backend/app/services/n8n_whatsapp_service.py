@@ -37,9 +37,14 @@ class N8NWhatsAppService:
         extra_params: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Construct standard JSON payload for n8n Webhook trigger."""
-        clean_phone = recipient_phone.replace(" ", "").replace("-", "")
-        if not clean_phone.startswith("+"):
-            clean_phone = f"+{clean_phone}"
+        clean_phone = recipient_phone.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+        if clean_phone.startswith("+"):
+            clean_phone = clean_phone[1:]
+        if clean_phone.startswith("0") and len(clean_phone) > 10:
+            clean_phone = clean_phone[1:]
+        if len(clean_phone) == 10:
+            clean_phone = f"91{clean_phone}"
+        clean_phone = f"+{clean_phone}"
 
         return {
             "event": "WHATSAPP_SEND_MESSAGE",

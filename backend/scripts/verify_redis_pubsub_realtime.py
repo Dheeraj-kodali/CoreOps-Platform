@@ -8,6 +8,50 @@ import httpx
 PROD_API_URL = "https://coreops-platform.onrender.com/api/v1"
 PROD_WS_URL = "wss://coreops-platform.onrender.com/api/v1/ws"
 
+async def _connect_verify_ws_clients(ws_events_received: list):
+    async def browser_client_ws():
+        try:
+            async with websockets.connect(PROD_WS_URL) as ws:
+                print(f"\n2. [Netlify Browser Client] Connected to {PROD_WS_URL}")
+                print("   [Handshake Status]: HTTP 101 Switching Protocols")
+                while True:
+                    msg = await ws.recv()
+                    parsed = json.loads(msg)
+                    rx_time = datetime.now(timezone.utc).isoformat()
+                    print(f"   [Netlify Browser Received Event at {rx_time}]:")
+                    print(f"   {json.dumps(parsed)}")
+                    if parsed.get("event") != "CONNECTED":
+                        ws_events_received.append({"rx_at": rx_time, "event": parsed})
+                        break
+        except Exception as e:
+            print(f"   [Netlify Browser WS Error]: {e}")
+
+    async def flutter_apk_ws():
+        try:
+            async with websockets.connect(PROD_WS_URL) as ws:
+                print(f"   [Flutter APK Client v1.7.0+10] Connected to {PROD_WS_URL}")
+                while True:
+                    msg = await ws.recv()
+                    parsed = json.loads(msg)
+                    if parsed.get("event") != "CONNECTED":
+                        break
+        except Exception as e:
+            print(f"   [Flutter APK WS Error]: {e}")
+
+    ws_task_1 = asyncio.create_task(browser_client_ws())
+    ws_task_2 = asyncio.create_task(flutter_apk_ws())
+    await asyncio.sleep(2.0)
+    return ws_task_1, ws_task_2
+
+
+async def _save_verification_results(results: dict):
+    def _write():
+        with open("redis_pubsub_verification_results.json", "w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2)
+
+    await asyncio.to_thread(_write)
+
+
 async def test_redis_pubsub_realtime():
     print("=" * 80)
     print("PRODUCTION REDIS PUB/SUB MULTI-WORKER REAL-TIME SYSTEM VERIFICATION")
@@ -25,45 +69,13 @@ async def test_redis_pubsub_realtime():
         # 2. Get Dashboard Stats BEFORE
         dash_before_res = await client.get(f"{PROD_API_URL}/analytics/dashboard", headers=headers)
         dash_before = dash_before_res.json()
-        print(f"\n1. GET /api/v1/analytics/dashboard BEFORE:")
+        print("\n1. GET /api/v1/analytics/dashboard BEFORE:")
         print(f"   Today's Visitors: {dash_before.get('todays_visitors')}")
         print(f"   Visitors Inside:  {dash_before.get('visitors_inside')}")
 
         # 3. Connect Browser & Mobile WebSocket Clients to Production Endpoint
         ws_events_received = []
-
-        async def browser_client_ws():
-            try:
-                async with websockets.connect(PROD_WS_URL) as ws:
-                    print(f"\n2. [Netlify Browser Client] Connected to {PROD_WS_URL}")
-                    print("   [Handshake Status]: HTTP 101 Switching Protocols")
-                    while True:
-                        msg = await ws.recv()
-                        parsed = json.loads(msg)
-                        rx_time = datetime.now(timezone.utc).isoformat()
-                        print(f"   [Netlify Browser Received Event at {rx_time}]:")
-                        print(f"   {json.dumps(parsed)}")
-                        if parsed.get("event") != "CONNECTED":
-                            ws_events_received.append({"rx_at": rx_time, "event": parsed})
-                            break
-            except Exception as e:
-                print(f"   [Netlify Browser WS Error]: {e}")
-
-        async def flutter_apk_ws():
-            try:
-                async with websockets.connect(PROD_WS_URL) as ws:
-                    print(f"   [Flutter APK Client v1.7.0+10] Connected to {PROD_WS_URL}")
-                    while True:
-                        msg = await ws.recv()
-                        parsed = json.loads(msg)
-                        if parsed.get("event") != "CONNECTED":
-                            break
-            except Exception as e:
-                print(f"   [Flutter APK WS Error]: {e}")
-
-        ws_task_1 = asyncio.create_task(browser_client_ws())
-        ws_task_2 = asyncio.create_task(flutter_apk_ws())
-        await asyncio.sleep(2.0)
+        ws_task_1, ws_task_2 = await _connect_verify_ws_clients(ws_events_received)
 
         # 4. Register Visitor from APK
         import uuid
@@ -87,13 +99,11 @@ async def test_redis_pubsub_realtime():
         }
 
         print(f"\n3. Registering Visitor from APK: '{redis_visitor_name}' (3 persons)...")
-        ts_post_start = datetime.now(timezone.utc).isoformat()
         t0 = time.perf_counter()
 
         post_res = await client.post(f"{PROD_API_URL}/visitors/", json=reg_payload, headers=headers)
 
         t1 = time.perf_counter()
-        ts_post_done = datetime.now(timezone.utc).isoformat()
         print(f"   HTTP POST /api/v1/visitors Response Status: {post_res.status_code} Created ({round(t1-t0, 3)}s)")
 
         # Wait for WebSocket events
@@ -105,7 +115,7 @@ async def test_redis_pubsub_realtime():
         # 5. GET /api/v1/analytics/dashboard AFTER
         dash_after_res = await client.get(f"{PROD_API_URL}/analytics/dashboard", headers=headers)
         dash_after = dash_after_res.json()
-        print(f"\n4. GET /api/v1/analytics/dashboard AFTER (Automatic Update via Redis PubSub):")
+        print("\n4. GET /api/v1/analytics/dashboard AFTER (Automatic Update via Redis PubSub):")
         print(f"   Today's Visitors: {dash_after.get('todays_visitors')}")
         print(f"   Visitors Inside:  {dash_after.get('visitors_inside')}")
         print(f"   Top Row in Recent Visitors: {dash_after.get('recent_visitors')[0].get('name') if dash_after.get('recent_visitors') else 'None'}")
@@ -123,8 +133,7 @@ async def test_redis_pubsub_realtime():
             "sync_verified": len(ws_events_received) > 0
         }
 
-        with open("redis_pubsub_verification_results.json", "w", encoding="utf-8") as f:
-            json.dump(results, f, indent=2)
+        await _save_verification_results(results)
 
         print("\n" + "=" * 80)
         print("REDIS PUB/SUB MULTI-WORKER VERIFICATION COMPLETE.")

@@ -83,6 +83,45 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     );
   }
 
+  Future<void> _clearAllVisitorData() async {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.delete_forever, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Clear All Visitor Data', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'This will permanently wipe all local visitor records, visits, persons, outbox sync items, and message logs. Visitor counter will reset to 0.\n\nAre you sure you want to clear all visitor data?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(context);
+              setState(() => _isProcessing = true);
+              await VisitorRepository().clearAllVisitorData();
+              if (mounted) {
+                setState(() => _isProcessing = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('All Visitor Data Cleared & Reset to 0 Successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
+            child: const Text('CLEAR ALL DATA'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -106,8 +145,15 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                   title: 'Import Database Snapshot',
                   subtitle: 'Restore database from an existing .db backup file',
                   icon: Icons.download,
-                  color: Colors.red,
+                  color: Colors.blue,
                   onTap: _importBackup,
+                ),
+                _cardTile(
+                  title: 'Clear All Historical Visitor Data',
+                  subtitle: 'Permanently wipe all accumulated visitor records & reset counts to 0',
+                  icon: Icons.delete_forever,
+                  color: Colors.red,
+                  onTap: _clearAllVisitorData,
                 ),
               ],
             ),

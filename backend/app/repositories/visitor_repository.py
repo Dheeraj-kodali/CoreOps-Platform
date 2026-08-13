@@ -22,12 +22,12 @@ class VisitorRepository(BaseRepository[VisitSession]):
     async def get_profile_by_phone(self, phone_number: str) -> Optional[VisitorProfile]:
         clean_phone = phone_number.strip()
         raw_digits = "".join(filter(str.isdigit, clean_phone))
-        phone_variants = list(set([
+        phone_variants = {
             clean_phone,
             f"+{raw_digits}",
             f"+91{raw_digits[-10:]}" if len(raw_digits) >= 10 else clean_phone,
             raw_digits[-10:] if len(raw_digits) >= 10 else clean_phone
-        ]))
+        }
 
         stmt = (
             select(VisitorProfile)

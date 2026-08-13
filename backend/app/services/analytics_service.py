@@ -25,10 +25,118 @@ class AnalyticsService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    @staticmethod
+    def _build_live_metrics(
+        today_sessions: List[VisitSession],
+        all_sessions: List[VisitSession],
+        today_date: date_cls,
+    ) -> LiveVisitorMetrics:
+        today_visitors_count = sum(s.persons_count for s in today_sessions)
+        today_inside_count = sum(s.persons_count for s in today_sessions if s.status == "INSIDE")
+
+        week_start = today_date - timedelta(days=today_date.weekday())
+        weekly_count = sum(s.persons_count for s in all_sessions if s.visit_date and s.visit_date >= week_start)
+
+        month_start = today_date.replace(day=1)
+        monthly_count = sum(s.persons_count for s in all_sessions if s.visit_date and s.visit_date >= month_start)
+
+        year_start = today_date.replace(month=1, day=1)
+        yearly_count = sum(s.persons_count for s in all_sessions if s.visit_date and s.visit_date >= year_start)
+
+        profile_counts: Dict[str, int] = {}
+        for s in all_sessions:
+            pid = s.visitor_profile_id
+            if pid:
+                profile_counts[pid] = profile_counts.get(pid, 0) + 1
+
+        repeat_profile_ids = {pid for pid, c in profile_counts.items() if c > 1}
+        repeat_count = sum(s.persons_count for s in today_sessions if s.visitor_profile_id in repeat_profile_ids)
+        first_time_count = max(0, today_visitors_count - repeat_count)
+
+        return LiveVisitorMetrics(
+            live_visitors=today_inside_count,
+            today_visitors=today_visitors_count,
+            weekly_visitors=weekly_count,
+            monthly_visitors=monthly_count,
+            yearly_visitors=yearly_count,
+            repeat_visitors=repeat_count,
+            first_time_visitors=first_time_count,
+        )
+
+    @staticmethod
+    def _build_hourly_trends(
+        today_sessions: List[VisitSession],
+    ) -> Tuple[List[HourlyTrendItem], List[HourlyTrendItem]]:
+        hourly_counts = [0] * 24
+        for s in today_sessions:
+            if s.check_in_time:
+                hourly_counts[s.check_in_time.hour] += s.persons_count
+
+        hourly_trends = [HourlyTrendItem(hour=h, count=c) for h, c in enumerate(hourly_counts)]
+        peak_visiting_hours = sorted(hourly_trends, key=lambda x: x.count, reverse=True)[:5]
+        return hourly_trends, peak_visiting_hours
+
+    @staticmethod
+    def _build_daily_trends(
+        all_sessions: List[VisitSession],
+        today_date: date_cls,
+    ) -> List[DailyTrendItem]:
+        daily_map: Dict[str, int] = {
+            (today_date - timedelta(days=6 - i)).strftime("%Y-%m-%d"): 0
+            for i in range(7)
+        }
+        for s in all_sessions:
+            if s.visit_date:
+                day_str = s.visit_date.strftime("%Y-%m-%d")
+                if day_str in daily_map:
+                    daily_map[day_str] += s.persons_count
+
+        return [DailyTrendItem(date=d, count=c) for d, c in daily_map.items()]
+
+    @staticmethod
+    def _build_village_distribution(
+        today_sessions: List[VisitSession],
+        today_visitors_count: int,
+    ) -> List[DistributionItem]:
+        village_map: Dict[str, int] = {}
+        for s in today_sessions:
+            vname = "Unknown"
+            if s.visitor_profile:
+                vname = s.visitor_profile.village_name_custom or (
+                    s.visitor_profile.village.name_en if s.visitor_profile.village else "Unknown"
+                )
+            village_map[vname] = village_map.get(vname, 0) + s.persons_count
+
+        return [
+            DistributionItem(
+                label=vname,
+                count=c,
+                percentage=round((c / today_visitors_count * 100), 1) if today_visitors_count > 0 else 0.0,
+            )
+            for vname, c in sorted(village_map.items(), key=lambda x: x[1], reverse=True)[:10]
+        ]
+
+    @staticmethod
+    def _build_purpose_distribution(
+        today_sessions: List[VisitSession],
+        today_visitors_count: int,
+    ) -> List[DistributionItem]:
+        purpose_map: Dict[str, int] = {}
+        for s in today_sessions:
+            purp = s.purpose.name_en if s.purpose else "General Darshan"
+            purpose_map[purp] = purpose_map.get(purp, 0) + s.persons_count
+
+        return [
+            DistributionItem(
+                label=purp,
+                count=c,
+                percentage=round((c / today_visitors_count * 100), 1) if today_visitors_count > 0 else 0.0,
+            )
+            for purp, c in sorted(purpose_map.items(), key=lambda x: x[1], reverse=True)[:10]
+        ]
+
     async def get_visitor_metrics(self, temple_id: str = "SKSA_MAIN") -> VisitorAnalyticsResponse:
-        now = datetime.now(timezone.utc)
         today_date = date_cls.today()
-        start_of_today = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
 
         # Auto-close past day unfinished sessions
         from app.repositories.visitor_repository import VisitorRepository
@@ -45,112 +153,28 @@ class AnalyticsService:
             .filter(
                 VisitSession.visit_date == today_date,
                 VisitSession.is_deleted.is_(False),
+                or_(VisitSession.temple_id == temple_id, VisitSession.temple_id.is_(None)),
             )
         )
         today_res = await self.db.execute(today_stmt)
         today_sessions = list(today_res.scalars().all())
 
-        # Today's metrics calculations
-        today_visitors_count = sum(s.persons_count for s in today_sessions)
-        today_inside_count = sum(s.persons_count for s in today_sessions if s.status == "INSIDE")
-        today_left_count = sum(s.persons_count for s in today_sessions if s.status in ("CHECKED_OUT", "AUTO_CLOSED"))
-        today_checkins = len(today_sessions)
-        today_checkouts = sum(1 for s in today_sessions if s.status in ("CHECKED_OUT", "AUTO_CLOSED"))
-
         # Fetch all historical sessions for weekly, monthly, repeat analytics
         all_stmt = (
             select(VisitSession)
             .options(selectinload(VisitSession.visitor_profile), selectinload(VisitSession.purpose))
-            .filter(VisitSession.is_deleted.is_(False))
+            .filter(
+                VisitSession.is_deleted.is_(False),
+                or_(VisitSession.temple_id == temple_id, VisitSession.temple_id.is_(None)),
+            )
         )
         all_sessions = list((await self.db.execute(all_stmt)).scalars().all())
 
-        total_count = sum(s.persons_count for s in all_sessions)
-        
-        week_start = today_date - timedelta(days=today_date.weekday())
-        weekly_count = sum(s.persons_count for s in all_sessions if s.visit_date and s.visit_date >= week_start)
-
-        month_start = today_date.replace(day=1)
-        monthly_count = sum(s.persons_count for s in all_sessions if s.visit_date and s.visit_date >= month_start)
-
-        year_start = today_date.replace(month=1, day=1)
-        yearly_count = sum(s.persons_count for s in all_sessions if s.visit_date and s.visit_date >= year_start)
-
-        # Repeat vs First-time calculation based on visitor_profile_id frequency
-        profile_counts: Dict[str, int] = {}
-        for s in all_sessions:
-            pid = s.visitor_profile_id
-            if pid:
-                profile_counts[pid] = profile_counts.get(pid, 0) + 1
-
-        repeat_profile_ids = {pid for pid, c in profile_counts.items() if c > 1}
-        repeat_count = sum(s.persons_count for s in today_sessions if s.visitor_profile_id in repeat_profile_ids)
-        first_time_count = max(0, today_visitors_count - repeat_count)
-
-        live_metrics = LiveVisitorMetrics(
-            live_visitors=today_inside_count,
-            today_visitors=today_visitors_count,
-            weekly_visitors=weekly_count,
-            monthly_visitors=monthly_count,
-            yearly_visitors=yearly_count,
-            repeat_visitors=repeat_count,
-            first_time_visitors=first_time_count,
-        )
-
-        # 2. Hourly Trends (Today's distribution by hour 0..23)
-        hourly_counts = [0] * 24
-        for s in today_sessions:
-            if s.check_in_time:
-                hourly_counts[s.check_in_time.hour] += s.persons_count
-
-        hourly_trends = [HourlyTrendItem(hour=h, count=c) for h, c in enumerate(hourly_counts)]
-        peak_visiting_hours = sorted(hourly_trends, key=lambda x: x.count, reverse=True)[:5]
-
-        # 3. Daily Trends (Last 7 Days)
-        daily_map: Dict[str, int] = {}
-        for i in range(7):
-            day_dt = (today_date - timedelta(days=6 - i)).strftime("%Y-%m-%d")
-            daily_map[day_dt] = 0
-
-        for s in all_sessions:
-            if s.visit_date:
-                day_str = s.visit_date.strftime("%Y-%m-%d")
-                if day_str in daily_map:
-                    daily_map[day_str] += s.persons_count
-
-        daily_trends = [DailyTrendItem(date=d, count=c) for d, c in daily_map.items()]
-
-        # 4. Village Distribution (From Today's Sessions)
-        village_map: Dict[str, int] = {}
-        for s in today_sessions:
-            vname = "Unknown"
-            if s.visitor_profile:
-                vname = s.visitor_profile.village_name_custom or (s.visitor_profile.village.name_en if s.visitor_profile.village else "Unknown")
-            village_map[vname] = village_map.get(vname, 0) + s.persons_count
-
-        village_distribution = [
-            DistributionItem(
-                label=vname,
-                count=c,
-                percentage=round((c / today_visitors_count * 100), 1) if today_visitors_count > 0 else 0.0
-            )
-            for vname, c in sorted(village_map.items(), key=lambda x: x[1], reverse=True)[:10]
-        ]
-
-        # 5. Purpose Distribution (From Today's Sessions)
-        purpose_map: Dict[str, int] = {}
-        for s in today_sessions:
-            purp = s.purpose.name_en if s.purpose else "General Darshan"
-            purpose_map[purp] = purpose_map.get(purp, 0) + s.persons_count
-
-        purpose_distribution = [
-            DistributionItem(
-                label=purp,
-                count=c,
-                percentage=round((c / today_visitors_count * 100), 1) if today_visitors_count > 0 else 0.0
-            )
-            for purp, c in sorted(purpose_map.items(), key=lambda x: x[1], reverse=True)[:10]
-        ]
+        live_metrics = self._build_live_metrics(today_sessions, all_sessions, today_date)
+        hourly_trends, peak_visiting_hours = self._build_hourly_trends(today_sessions)
+        daily_trends = self._build_daily_trends(all_sessions, today_date)
+        village_distribution = self._build_village_distribution(today_sessions, live_metrics.today_visitors)
+        purpose_distribution = self._build_purpose_distribution(today_sessions, live_metrics.today_visitors)
 
         return VisitorAnalyticsResponse(
             live=live_metrics,
@@ -241,25 +265,15 @@ class AnalyticsService:
             restores=restores,
         )
 
-    async def get_audience_analytics(self, temple_id: str = "SKSA_MAIN") -> AudienceAnalyticsResponse:
-        now = datetime.now(timezone.utc)
-        d7 = now - timedelta(days=7)
-        d30 = now - timedelta(days=30)
-        d90 = now - timedelta(days=90)
-
-        q = select(VisitorProfile).filter(VisitorProfile.is_deleted.is_(False))
-        res = await self.db.execute(q)
-        profiles = list(res.scalars().all())
-
-        total_devotees = len(profiles)
-
-        q_s = select(VisitSession).options(selectinload(VisitSession.purpose))
-        s_res = await self.db.execute(q_s)
-        sessions = list(s_res.scalars().all())
-
-        d7_date = (date_cls.today() - timedelta(days=7))
-        d30_date = (date_cls.today() - timedelta(days=30))
-        d90_date = (date_cls.today() - timedelta(days=90))
+    @staticmethod
+    def _compute_audience_recency_and_frequency(
+        profiles: List[VisitorProfile],
+        sessions: List[VisitSession],
+    ) -> Tuple[int, int, int, int, int]:
+        today_d = date_cls.today()
+        d7_date = today_d - timedelta(days=7)
+        d30_date = today_d - timedelta(days=30)
+        d90_date = today_d - timedelta(days=90)
 
         profile_session_dates: Dict[str, List[date_cls]] = {}
         for s in sessions:
@@ -274,27 +288,67 @@ class AnalyticsService:
         v90 = sum(1 for p in profiles if any(d >= d90_date for d in profile_session_dates.get(p.id, [])))
 
         repeat_count = sum(1 for p in profiles if len(profile_session_dates.get(p.id, [])) > 1)
-        first_time_count = total_devotees - repeat_count
+        first_time_count = len(profiles) - repeat_count
+        return v7, v30, v90, repeat_count, first_time_count
 
+    @staticmethod
+    def _compute_audience_village_breakdown(
+        profiles: List[VisitorProfile],
+        total_devotees: int,
+    ) -> List[DistributionItem]:
         village_map: Dict[str, int] = {}
         for p in profiles:
             vname = p.village_name_custom or (p.village.name_en if p.village else "Unknown")
             village_map[vname] = village_map.get(vname, 0) + 1
 
-        village_breakdown = [
-            DistributionItem(label=k, count=v, percentage=round(v / total_devotees * 100, 1) if total_devotees > 0 else 0.0)
+        return [
+            DistributionItem(
+                label=k,
+                count=v,
+                percentage=round(v / total_devotees * 100, 1) if total_devotees > 0 else 0.0,
+            )
             for k, v in sorted(village_map.items(), key=lambda x: x[1], reverse=True)[:10]
         ]
 
+    @staticmethod
+    def _compute_audience_purpose_breakdown(
+        sessions: List[VisitSession],
+    ) -> List[DistributionItem]:
         purpose_map: Dict[str, int] = {}
         for s in sessions:
             purp = s.purpose.name_en if s.purpose else "General Darshan"
             purpose_map[purp] = purpose_map.get(purp, 0) + 1
 
-        purpose_breakdown = [
-            DistributionItem(label=k, count=v, percentage=round(v / len(sessions) * 100, 1) if sessions else 0.0)
+        return [
+            DistributionItem(
+                label=k,
+                count=v,
+                percentage=round(v / len(sessions) * 100, 1) if sessions else 0.0,
+            )
             for k, v in sorted(purpose_map.items(), key=lambda x: x[1], reverse=True)[:10]
         ]
+
+    async def get_audience_analytics(self, temple_id: str = "SKSA_MAIN") -> AudienceAnalyticsResponse:
+        q = select(VisitorProfile).filter(VisitorProfile.is_deleted.is_(False))
+        res = await self.db.execute(q)
+        profiles = list(res.scalars().all())
+
+        total_devotees = len(profiles)
+
+        q_s = (
+            select(VisitSession)
+            .options(selectinload(VisitSession.purpose))
+            .filter(
+                VisitSession.is_deleted.is_(False),
+                or_(VisitSession.temple_id == temple_id, VisitSession.temple_id.is_(None)),
+            )
+        )
+        s_res = await self.db.execute(q_s)
+        sessions = list(s_res.scalars().all())
+
+        v7, v30, v90, repeat_count, first_time_count = self._compute_audience_recency_and_frequency(profiles, sessions)
+        village_breakdown = self._compute_audience_village_breakdown(profiles, total_devotees)
+        purpose_breakdown = self._compute_audience_purpose_breakdown(sessions)
 
         avg_freq = round(len(sessions) / total_devotees, 2) if total_devotees > 0 else 1.0
 

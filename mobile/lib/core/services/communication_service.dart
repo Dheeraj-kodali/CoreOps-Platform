@@ -33,7 +33,7 @@ class ManualWhatsAppProvider implements ChannelProvider {
   @override
   Future<MetaDispatchResult> sendMessage(String recipientPhone, String renderedMessage) async {
     try {
-      final cleanPhone = recipientPhone.replaceAll(RegExp(r'[^\d+]'), '');
+      final cleanPhone = CommunicationService.formatPhoneNumberForWhatsApp(recipientPhone);
       final encodedMessage = Uri.encodeComponent(renderedMessage);
       final url = Uri.parse('whatsapp://send?phone=$cleanPhone&text=$encodedMessage');
       
@@ -82,10 +82,7 @@ class MetaWhatsAppProvider implements ChannelProvider {
 
     final url = 'https://graph.facebook.com/v23.0/$phoneId/messages';
     
-    var cleanPhone = recipientPhone.replaceAll(RegExp(r'[^\d]'), '');
-    if (cleanPhone.startsWith('+')) {
-      cleanPhone = cleanPhone.substring(1);
-    }
+    final cleanPhone = CommunicationService.formatPhoneNumberForWhatsApp(recipientPhone);
 
     final payload = {
       'messaging_product': 'whatsapp',
@@ -215,7 +212,7 @@ class N8NWhatsAppProvider implements ChannelProvider {
         ? settings.accessToken!
         : 'https://n8n.kalkiseva.org/webhook/whatsapp-send';
 
-    var cleanPhone = recipientPhone.replaceAll(RegExp(r'[^\d+]'), '');
+    final cleanPhone = CommunicationService.formatPhoneNumberForWhatsApp(recipientPhone);
 
     final payload = {
       'event': 'WHATSAPP_SEND_MESSAGE',
@@ -226,7 +223,13 @@ class N8NWhatsAppProvider implements ChannelProvider {
     };
 
     try {
-      final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 10), receiveTimeout: const Duration(seconds: 10)));
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          validateStatus: (status) => status != null && status < 600,
+        ),
+      );
       final res = await dio.post(webhookUrl, data: payload);
       if (res.statusCode == 200 || res.statusCode == 201) {
         return MetaDispatchResult(
@@ -234,17 +237,37 @@ class N8NWhatsAppProvider implements ChannelProvider {
           metaMessageId: res.data?['execution_id']?.toString() ?? 'n8n-mobile-ok',
           statusCode: res.statusCode,
         );
+      } else if (res.statusCode == 404) {
+        // Fall back to manual WhatsApp deep link if n8n workflow is unpublished / 404
+        final manualFallback = ManualWhatsAppProvider();
+        await manualFallback.sendMessage(recipientPhone, renderedMessage);
+
+        return MetaDispatchResult(
+          success: false,
+          errorMessage: 'n8n Webhook Inactive (HTTP 404). Click "Publish" in n8n Cloud to activate your workflow.',
+          statusCode: 404,
+        );
       } else {
         return MetaDispatchResult(
           success: false,
-          errorMessage: 'HTTP ${res.statusCode}: ${res.statusMessage}',
+          errorMessage: 'n8n Webhook HTTP ${res.statusCode}: ${res.statusMessage}',
           statusCode: res.statusCode,
         );
       }
     } catch (e) {
+      final errStr = e.toString();
+      final isDnsError = errStr.contains('Failed host lookup') || errStr.contains('SocketException');
+      final msg = isDnsError
+          ? 'n8n Webhook URL unreachable. Update Webhook URL in Communication Settings or use Manual WhatsApp.'
+          : 'n8n Webhook error: $e';
+
+      // Fall back to manual WhatsApp deep link on network exception
+      final manualFallback = ManualWhatsAppProvider();
+      await manualFallback.sendMessage(recipientPhone, renderedMessage);
+
       return MetaDispatchResult(
         success: false,
-        errorMessage: 'n8n Webhook connection error: $e',
+        errorMessage: msg,
       );
     }
   }
@@ -291,6 +314,21 @@ class TemplateEngine {
 }
 
 class CommunicationService {
+  static String formatPhoneNumberForWhatsApp(String phone, {String defaultCountryCode = '91'}) {
+    if (phone.trim().isEmpty) return phone;
+    String clean = phone.trim().replaceAll(RegExp(r'[^\d+]'), '');
+    if (clean.startsWith('+')) {
+      clean = clean.substring(1);
+    }
+    if (clean.startsWith('0') && clean.length > 10) {
+      clean = clean.substring(1);
+    }
+    if (clean.length == 10) {
+      clean = '$defaultCountryCode$clean';
+    }
+    return clean;
+  }
+
   Future<CommunicationSettings> getSettings() async {
     final map = await SQLiteDatabase.getCommunicationSettings();
     return CommunicationSettings.fromJson(map);
@@ -441,5 +479,11 @@ class CommunicationService {
   Future<List<CommunicationHistory>> getHistoryForVisitor(String visitorId) async {
     final rows = await SQLiteDatabase.getCommunicationHistoryByVisitor(visitorId);
     return rows.map((r) => CommunicationHistory.fromJson(r)).toList();
+  }
+
+  Future<MetaDispatchResult> sendTestMessage(String recipientPhone, String text) async {
+    final settings = await getSettings();
+    final provider = N8NWhatsAppProvider(settings);
+    return await provider.sendMessage(recipientPhone, text);
   }
 }

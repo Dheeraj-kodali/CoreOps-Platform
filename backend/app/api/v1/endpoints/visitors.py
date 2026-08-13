@@ -234,6 +234,19 @@ async def check_duplicate(
     return {"is_duplicate": duplicate is not None, "existing_record": duplicate}
 
 
+@router.post("/reset-all-data", status_code=status.HTTP_200_OK)
+async def reset_all_visitor_data(
+    service: Annotated[VisitorService, Depends(get_visitor_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Clear all visitor profiles and session records from backend database.
+    Resets total statistics counters back to 0.
+    """
+    deleted_count = await service.reset_all_data()
+    return {"message": "All backend visitor records deleted successfully.", "deleted_count": deleted_count}
+
+
 @router.post("/bulk-delete", status_code=status.HTTP_200_OK)
 async def bulk_delete_visitors(
     payload: BulkDeleteRequest,

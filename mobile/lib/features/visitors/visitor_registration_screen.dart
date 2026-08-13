@@ -108,6 +108,7 @@ class _VisitorRegistrationScreenState extends State<VisitorRegistrationScreen> {
   }
 
   Future<void> _submitForm() async {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSubmitting = true);

@@ -91,16 +91,26 @@ async def run_evidence_collection():
         class MockNetlifyWSClient:
             def __init__(self):
                 self.name = "Netlify Admin Portal Client"
-            async def accept(self): pass
+
+            async def accept(self):
+                # Mock accept implementation
+                await asyncio.sleep(0)
+
             async def send_text(self, text):
+                await asyncio.sleep(0)
                 rx_time = datetime.now(timezone.utc).isoformat()
                 netlify_ws_received.append({"timestamp": rx_time, "payload": json.loads(text)})
 
         class MockFlutterWSClient:
             def __init__(self):
                 self.name = "Flutter Mobile Client (Phone 1)"
-            async def accept(self): pass
+
+            async def accept(self):
+                # Mock accept implementation
+                await asyncio.sleep(0)
+
             async def send_text(self, text):
+                await asyncio.sleep(0)
                 rx_time = datetime.now(timezone.utc).isoformat()
                 flutter_ws_received.append({"timestamp": rx_time, "payload": json.loads(text)})
 
@@ -119,7 +129,7 @@ async def run_evidence_collection():
 
         req_payload = {
             "visitor_uuid": test_uuid,
-            "name": f"Devotee Ananya Sharma",
+            "name": "Devotee Ananya Sharma",
             "phone_number": "+919876500123",
             "gender": "FEMALE",
             "age": 28,
@@ -134,8 +144,6 @@ async def run_evidence_collection():
         ts_req = datetime.now(timezone.utc).isoformat()
 
         res_post = await ac.post("/api/v1/visitors/", json=req_payload, headers=headers)
-        
-        t_resp = time.perf_counter()
         ts_resp = datetime.now(timezone.utc).isoformat()
 
         evidence["1_http_request"] = {
@@ -237,13 +245,16 @@ async def run_evidence_collection():
         t_end = time.perf_counter()
         elapsed_sec = round(t_end - t_start, 4)
         evidence["propagation_latency_seconds"] = elapsed_sec
-        print(f"\n" + "=" * 80)
+        print("\n" + "=" * 80)
         print(f"TOTAL REAL-TIME PROPAGATION LATENCY: {elapsed_sec} SECONDS (REQUIREMENT: < 2.0 SECONDS)")
         print("=" * 80)
 
-        # Write json evidence to file
-        with open("realtime_evidence_results.json", "w", encoding="utf-8") as f:
-            json.dump(evidence, f, indent=2)
+        # Write json evidence to file asynchronously
+        def _save_evidence():
+            with open("realtime_evidence_results.json", "w", encoding="utf-8") as f:
+                json.dump(evidence, f, indent=2)
+
+        await asyncio.to_thread(_save_evidence)
 
 if __name__ == "__main__":
     asyncio.run(run_evidence_collection())

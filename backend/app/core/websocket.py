@@ -28,8 +28,13 @@ class ConnectionManager:
         redis_url = getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
         try:
             import redis.asyncio as aioredis
-            self.redis_client = aioredis.from_url(redis_url, decode_responses=True)
-            await self.redis_client.ping()
+            self.redis_client = aioredis.from_url(
+                redis_url,
+                decode_responses=True,
+                socket_connect_timeout=2.0,
+                socket_timeout=2.0,
+            )
+            await asyncio.wait_for(self.redis_client.ping(), timeout=2.0)
             self._is_listening = True
             self.pubsub_task = asyncio.create_task(self._listen_redis_channel())
             logger.info(f"[Redis PubSub] Worker PID: {os.getpid()} successfully connected to Redis at '{redis_url}' and subscribed to channel '{REDIS_CHANNEL}'")
@@ -75,7 +80,8 @@ class ConnectionManager:
                         except Exception as ex:
                             logger.error(f"[Redis Listener Error] Failed to parse message payload: {ex}")
         except asyncio.CancelledError:
-            pass
+            logger.info("[Redis PubSub] Listener task cancelled.")
+            raise
         except Exception as e:
             logger.error(f"[Redis PubSub Exception] Worker PID: {os.getpid()} listener error: {e}")
 
@@ -124,7 +130,7 @@ class ConnectionManager:
         disconnected_clients = []
         clients_sent = 0
 
-        for connection in list(self.active_connections):
+        for connection in self.active_connections.copy():
             try:
                 await connection.send_text(message_str)
                 clients_sent += 1

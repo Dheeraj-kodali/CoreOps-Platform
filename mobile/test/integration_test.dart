@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 void main() {
   setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   });
@@ -151,6 +152,13 @@ void main() {
       final path = await SQLiteDatabase.getDatabaseFilePath();
       expect(path, isNotEmpty);
       expect(path.contains('temple_visitors_prod_v1.db'), isTrue);
+    });
+
+    test('8. WhatsApp Phone Number Formatting with Default Country Code', () {
+      expect(CommunicationService.formatPhoneNumberForWhatsApp('6301123013'), '916301123013');
+      expect(CommunicationService.formatPhoneNumberForWhatsApp('+916301123013'), '916301123013');
+      expect(CommunicationService.formatPhoneNumberForWhatsApp('06301123013'), '916301123013');
+      expect(CommunicationService.formatPhoneNumberForWhatsApp('9876543210'), '919876543210');
     });
   });
 }

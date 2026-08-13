@@ -9,6 +9,6 @@ class AppConfig {
   );
   
   static const String fallbackApiBaseUrl = 'https://coreops-platform.onrender.com/api/v1';
-  static const int connectTimeoutMs = 10000;
-  static const int receiveTimeoutMs = 10000;
+  static const int connectTimeoutMs = 30000;
+  static const int receiveTimeoutMs = 30000;
 }

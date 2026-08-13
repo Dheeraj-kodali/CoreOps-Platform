@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Annotated
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from app.api.deps import get_current_user, require_permission, get_communication_service
@@ -35,8 +35,8 @@ class BroadcastCreateRequest(BaseModel):
     summary="Get communication settings",
 )
 async def get_communication_settings(
-    current_user: User = Depends(get_current_user),
-    service: CommunicationService = Depends(get_communication_service),
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: Annotated[CommunicationService, Depends(get_communication_service)],
 ):
     settings = await service.get_settings()
     return CommunicationSettingsResponse.from_model(settings)
@@ -49,8 +49,8 @@ async def get_communication_settings(
 )
 async def update_communication_settings(
     payload: CommunicationSettingsUpdate,
-    current_user: User = Depends(get_current_user),
-    service: CommunicationService = Depends(get_communication_service),
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: Annotated[CommunicationService, Depends(get_communication_service)],
 ):
     settings = await service.update_settings(payload, current_user)
     return CommunicationSettingsResponse.from_model(settings)
@@ -62,8 +62,8 @@ async def update_communication_settings(
     summary="Get all message templates",
 )
 async def get_all_templates(
-    current_user: User = Depends(get_current_user),
-    service: CommunicationService = Depends(get_communication_service),
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: Annotated[CommunicationService, Depends(get_communication_service)],
 ):
     templates = await service.get_templates()
     return templates
@@ -76,8 +76,8 @@ async def get_all_templates(
 )
 async def preview_message(
     payload: MessagePreviewRequest,
-    current_user: User = Depends(get_current_user),
-    service: CommunicationService = Depends(get_communication_service),
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: Annotated[CommunicationService, Depends(get_communication_service)],
 ):
     result = await service.preview_message(
         payload.template_type, payload.custom_message
@@ -91,10 +91,10 @@ async def preview_message(
     summary="List communication history",
 )
 async def list_communication_history(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    current_user: User = Depends(get_current_user),
-    service: CommunicationService = Depends(get_communication_service),
+    page: Annotated[int, Query(ge=1)] = 1,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
+    service: Annotated[CommunicationService, Depends(get_communication_service)] = None,
 ):
     items, total, pages = await service.get_all_history(page=page, limit=limit)
     return CommunicationHistoryListResponse(
@@ -156,7 +156,7 @@ DEMO_BROADCASTS = [
 
 @router.get("/broadcasts")
 async def list_broadcasts(
-    current_user: User = Depends(get_current_user),
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     return {"items": DEMO_BROADCASTS, "total": len(DEMO_BROADCASTS)}
 
@@ -164,8 +164,8 @@ async def list_broadcasts(
 @router.post("/broadcasts", status_code=status.HTTP_201_CREATED)
 async def create_broadcast(
     payload: BroadcastCreateRequest,
-    current_user: User = Depends(get_current_user),
-    service: CommunicationService = Depends(get_communication_service),
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: Annotated[CommunicationService, Depends(get_communication_service)],
 ):
     result = await service.send_broadcast_to_recipients(
         title=payload.title,
@@ -181,7 +181,7 @@ async def create_broadcast(
 @router.delete("/broadcasts/{broadcast_id}")
 async def cancel_broadcast(
     broadcast_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     global DEMO_BROADCASTS
     DEMO_BROADCASTS = [b for b in DEMO_BROADCASTS if b["id"] != broadcast_id]
@@ -191,7 +191,7 @@ async def cancel_broadcast(
 @router.post("/broadcasts/{broadcast_id}/retry")
 async def retry_failed_broadcast(
     broadcast_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     for b in DEMO_BROADCASTS:
         if b["id"] == broadcast_id:
@@ -205,7 +205,7 @@ async def retry_failed_broadcast(
 @router.get("/broadcasts/{broadcast_id}/deliveries")
 async def get_broadcast_deliveries(
     broadcast_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     return {
         "broadcast_id": broadcast_id,

@@ -1,5 +1,5 @@
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, or_
@@ -22,8 +22,8 @@ router = APIRouter()
 
 @router.get("/summary", response_model=DashboardSummaryResponse)
 async def get_dashboard_summary(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
@@ -59,8 +59,8 @@ async def get_dashboard_summary(
 
 @router.get("/dashboard")
 async def get_admin_dashboard(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     today = date.today()
     
@@ -200,8 +200,8 @@ async def get_admin_dashboard(
 async def get_purpose_breakdown(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
     stmt = (
         select(Purpose.id, Purpose.name_en, Purpose.name_te, func.count(Visitor.id).label("count"))

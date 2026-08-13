@@ -175,7 +175,7 @@ class CommunicationService(BaseService):
 
         elif settings.mode == "META_CLOUD_API":
             meta_service = MetaWhatsAppService(settings)
-            success, meta_msg_id, error = await meta_service.send_message(
+            success, meta_msg_id, error, _ = await meta_service.send_message(
                 phone, rendered_message
             )
             history_data["status"] = "SENT" if success else "FAILED"
@@ -245,6 +245,83 @@ class CommunicationService(BaseService):
             "rendered_message": rendered,
         }
 
+    async def _fetch_broadcast_target_profiles(
+        self,
+        recipients_type: str,
+        purpose_id: Optional[str],
+    ) -> list:
+        from datetime import date
+        from sqlalchemy.future import select
+        from app.models.visitor_profile import VisitorProfile
+        from app.models.visit_session import VisitSession
+
+        if recipients_type == "INSIDE":
+            stmt = (
+                select(VisitorProfile)
+                .join(VisitSession, VisitSession.visitor_profile_id == VisitorProfile.id)
+                .filter(VisitSession.visit_date == date.today(), VisitSession.status == "INSIDE", VisitorProfile.is_deleted.is_(False))
+            )
+        elif recipients_type == "TODAY":
+            stmt = (
+                select(VisitorProfile)
+                .join(VisitSession, VisitSession.visitor_profile_id == VisitorProfile.id)
+                .filter(VisitSession.visit_date == date.today(), VisitorProfile.is_deleted.is_(False))
+            )
+        elif recipients_type == "PURPOSE" and purpose_id:
+            stmt = (
+                select(VisitorProfile)
+                .join(VisitSession, VisitSession.visitor_profile_id == VisitorProfile.id)
+                .filter(VisitSession.purpose_id == purpose_id, VisitorProfile.is_deleted.is_(False))
+            )
+        else:
+            stmt = select(VisitorProfile).filter(VisitorProfile.is_deleted.is_(False))
+
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
+
+    async def _dispatch_single_recipient_broadcast(
+        self,
+        phone: str,
+        prof: Any,
+        custom_message: str,
+        settings: Any,
+        n8n_service: Any,
+        meta_service: Any,
+    ) -> bool:
+        context = {
+            "name": prof.name,
+            "phone": phone,
+            "temple": "Sri Kalki Seva Alayam",
+        }
+        rendered = self.engine.render(custom_message, context)
+
+        success = True
+        msg_id = None
+        err = None
+
+        if settings.mode == "N8N_AUTOMATION" and n8n_service:
+            success, msg_id, err = await n8n_service.send_message(
+                phone, rendered, message_type="BROADCAST", extra_params=context
+            )
+        elif settings.mode == "META_CLOUD_API" and meta_service:
+            success, msg_id, err, _ = await meta_service.send_message(phone, rendered)
+
+        if settings.save_history:
+            try:
+                await self.history_repo.create_entry({
+                    "visitor_id": None,
+                    "phone": phone,
+                    "message": rendered,
+                    "message_type": "BROADCAST",
+                    "status": "SENT" if success else "FAILED",
+                    "meta_message_id": msg_id,
+                    "error_message": err,
+                })
+            except Exception:
+                pass
+
+        return success
+
     async def send_broadcast_to_recipients(
         self,
         title: str,
@@ -257,46 +334,17 @@ class CommunicationService(BaseService):
         Query all registered visitor profiles up to now, filter target phone numbers,
         and dispatch the user-defined broadcast message to every selected visitor.
         """
-        from datetime import date, datetime, timezone
-        from sqlalchemy.future import select
-        from app.models.visitor_profile import VisitorProfile
-        from app.models.visit_session import VisitSession
+        from datetime import datetime, timezone
 
         # 1. Query target visitor profiles
-        if recipients_type == "INSIDE":
-            stmt = (
-                select(VisitorProfile)
-                .join(VisitSession, VisitSession.visitor_profile_id == VisitorProfile.id)
-                .filter(VisitSession.visit_date == date.today(), VisitSession.status == "INSIDE", VisitorProfile.is_deleted.is_(False))
-            )
-            res = await self.db.execute(stmt)
-            profiles = list(res.scalars().all())
-        elif recipients_type == "TODAY":
-            stmt = (
-                select(VisitorProfile)
-                .join(VisitSession, VisitSession.visitor_profile_id == VisitorProfile.id)
-                .filter(VisitSession.visit_date == date.today(), VisitorProfile.is_deleted.is_(False))
-            )
-            res = await self.db.execute(stmt)
-            profiles = list(res.scalars().all())
-        elif recipients_type == "PURPOSE" and purpose_id:
-            stmt = (
-                select(VisitorProfile)
-                .join(VisitSession, VisitSession.visitor_profile_id == VisitorProfile.id)
-                .filter(VisitSession.purpose_id == purpose_id, VisitorProfile.is_deleted.is_(False))
-            )
-            res = await self.db.execute(stmt)
-            profiles = list(res.scalars().all())
-        else:
-            stmt = select(VisitorProfile).filter(VisitorProfile.is_deleted.is_(False))
-            res = await self.db.execute(stmt)
-            profiles = list(res.scalars().all())
+        profiles = await self._fetch_broadcast_target_profiles(recipients_type, purpose_id)
 
         # 2. Extract unique non-empty phone numbers
-        recipients_map = {}
-        for p in profiles:
-            if p.phone_number and p.phone_number.strip():
-                recipients_map[p.phone_number.strip()] = p
+        recipients_map = {
+            p.phone_number.strip(): p
+            for p in profiles
+            if p.phone_number and p.phone_number.strip()
+        }
 
         settings = await self.get_settings()
         n8n_service = N8NWhatsAppService(settings) if settings.mode == "N8N_AUTOMATION" else None
@@ -306,42 +354,13 @@ class CommunicationService(BaseService):
         failed_count = 0
 
         for phone, prof in recipients_map.items():
-            context = {
-                "name": prof.name,
-                "phone": phone,
-                "temple": "Sri Kalki Seva Alayam",
-            }
-            rendered = self.engine.render(custom_message, context)
-
-            success = True
-            msg_id = None
-            err = None
-
-            if settings.mode == "N8N_AUTOMATION" and n8n_service:
-                success, msg_id, err = await n8n_service.send_message(
-                    phone, rendered, message_type="BROADCAST", extra_params=context
-                )
-            elif settings.mode == "META_CLOUD_API" and meta_service:
-                success, msg_id, err = await meta_service.send_message(phone, rendered)
-
+            success = await self._dispatch_single_recipient_broadcast(
+                phone, prof, custom_message, settings, n8n_service, meta_service
+            )
             if success:
                 delivered_count += 1
             else:
                 failed_count += 1
-
-            if settings.save_history:
-                try:
-                    await self.history_repo.create_entry({
-                        "visitor_id": None,
-                        "phone": phone,
-                        "message": rendered,
-                        "message_type": "BROADCAST",
-                        "status": "SENT" if success else "FAILED",
-                        "meta_message_id": msg_id,
-                        "error_message": err,
-                    })
-                except Exception:
-                    pass
 
         if settings.save_history:
             await self.commit()

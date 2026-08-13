@@ -1,4 +1,5 @@
 import uuid
+import logging
 from datetime import date, datetime, timezone, time
 from typing import Optional, List, Tuple
 from math import ceil
@@ -15,6 +16,10 @@ from app.models.visitor_profile import VisitorProfile
 from app.models.visit_session import VisitSession
 from app.models.user import User
 from app.core.exceptions import AppException
+
+logger = logging.getLogger("app.services.visitor_service")
+
+DEFAULT_PURPOSE_NAME = "General Darshan"
 
 
 class VisitorService(BaseService[VisitSession]):
@@ -43,7 +48,7 @@ class VisitorService(BaseService[VisitSession]):
         last_visit_summary = None
         if sessions:
             latest = sessions[0]
-            purpose_name = latest.purpose.name_en if latest.purpose else "General Darshan"
+            purpose_name = latest.purpose.name_en if latest.purpose else DEFAULT_PURPOSE_NAME
             last_visit_summary = LastVisitSummary(
                 last_visit_date=str(latest.visit_date),
                 last_visit_time=str(latest.check_in_time),
@@ -57,6 +62,38 @@ class VisitorService(BaseService[VisitSession]):
             profile_exists=True,
             profile=prof_dto,
             last_visit=last_visit_summary,
+        )
+
+    async def _resolve_profile_for_registration(self, payload: VisitSessionCreate, clean_phone: str, user_id: str) -> VisitorProfile:
+        profile = await self.visitor_repo.get_profile_by_phone(clean_phone)
+        if profile:
+            profile_updates = {}
+            if payload.name and payload.name != profile.name:
+                profile_updates["name"] = payload.name
+            if payload.village_id and payload.village_id != profile.village_id:
+                profile_updates["village_id"] = payload.village_id
+            if payload.village_name_custom and payload.village_name_custom != profile.village_name_custom:
+                profile_updates["village_name_custom"] = payload.village_name_custom
+            if payload.gender and payload.gender != profile.gender:
+                profile_updates["gender"] = payload.gender
+            if payload.age and payload.age != profile.age:
+                profile_updates["age"] = payload.age
+
+            if profile_updates:
+                return await self.visitor_repo.update_profile(profile, profile_updates, user_id=user_id)
+            return profile
+
+        return await self.visitor_repo.create_profile(
+            {
+                "name": payload.name or "Unknown Devotee",
+                "phone_number": clean_phone,
+                "village_id": payload.village_id,
+                "village_name_custom": payload.village_name_custom,
+                "gender": payload.gender or "MALE",
+                "age": payload.age or 30,
+                "default_purpose_id": payload.purpose_id,
+            },
+            user_id=user_id,
         )
 
     async def register_visitor(self, payload: VisitSessionCreate, current_user: User) -> VisitSession:
@@ -82,39 +119,8 @@ class VisitorService(BaseService[VisitSession]):
         # Auto-close past day unfinished sessions
         await self.visitor_repo.auto_close_past_sessions(date.today())
 
-        # 1. Search Profile
-        profile = await self.visitor_repo.get_profile_by_phone(clean_phone)
-
-        if profile:
-            # Update profile info if user modified fields during entry
-            profile_updates = {}
-            if payload.name and payload.name != profile.name:
-                profile_updates["name"] = payload.name
-            if payload.village_id and payload.village_id != profile.village_id:
-                profile_updates["village_id"] = payload.village_id
-            if payload.village_name_custom and payload.village_name_custom != profile.village_name_custom:
-                profile_updates["village_name_custom"] = payload.village_name_custom
-            if payload.gender and payload.gender != profile.gender:
-                profile_updates["gender"] = payload.gender
-            if payload.age and payload.age != profile.age:
-                profile_updates["age"] = payload.age
-
-            if profile_updates:
-                profile = await self.visitor_repo.update_profile(profile, profile_updates, user_id=current_user.id)
-        else:
-            # Create NEW Visitor Profile
-            profile = await self.visitor_repo.create_profile(
-                {
-                    "name": payload.name or "Unknown Devotee",
-                    "phone_number": clean_phone,
-                    "village_id": payload.village_id,
-                    "village_name_custom": payload.village_name_custom,
-                    "gender": payload.gender or "MALE",
-                    "age": payload.age or 30,
-                    "default_purpose_id": payload.purpose_id,
-                },
-                user_id=current_user.id,
-            )
+        # 1. Search / Resolve Profile
+        profile = await self._resolve_profile_for_registration(payload, clean_phone, current_user.id)
 
         # 2. Create Visit Session
         purpose_id = payload.purpose_id
@@ -252,8 +258,52 @@ class VisitorService(BaseService[VisitSession]):
     async def get_session_by_id(self, session_id: str) -> VisitSession:
         session_record = await self.visitor_repo.get_session_by_id(session_id)
         if not session_record or session_record.is_deleted:
-            raise AppException(status_code=404, detail="Visit Session record not found", error_code="SESSION_NOT_FOUND")
+            raise AppException(message="Visit Session record not found", code="SESSION_NOT_FOUND", status_code=404)
         return session_record
+
+    async def _send_exit_notification(
+        self, refreshed: VisitSession, now_time: time, dur_str: str, current_user: Optional[User]
+    ):
+        try:
+            async with self.db.begin_nested():
+                from app.services.communication_service import CommunicationService
+                comm_service = CommunicationService(self.db)
+                profile = refreshed.visitor_profile
+                if profile:
+                    await comm_service.prepare_and_record_message(
+                        visitor_id=None,
+                        phone=profile.phone_number,
+                        message_type="EXIT",
+                        context={
+                            "name": profile.name,
+                            "phone": profile.phone_number,
+                            "date": str(refreshed.visit_date),
+                            "time": str(now_time),
+                            "duration": str(dur_str),
+                            "visitor_id": profile.visitor_id,
+                            "temple": "Sri Kalki Seva Alayam",
+                            "volunteer": current_user.full_name or current_user.username if current_user else "Volunteer",
+                        },
+                    )
+        except Exception as e:
+            logger.error(f"EXIT notification failed silently: {e}")
+
+    async def _broadcast_checkout_event(self, refreshed: VisitSession):
+        try:
+            from app.core.websocket import websocket_manager
+            await websocket_manager.broadcast_event(
+                "CHECKED_OUT",
+                {
+                    "session_id": str(refreshed.id),
+                    "visitor_profile_id": str(refreshed.visitor_profile_id),
+                    "name": refreshed.visitor_profile.name if refreshed.visitor_profile else "Visitor",
+                    "phone": refreshed.visitor_profile.phone_number if refreshed.visitor_profile else "",
+                    "status": "CHECKED_OUT",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        except Exception:
+            pass
 
     async def checkout_visitor(
         self, session_id: str, checkout_time: Optional[str] = None, duration: Optional[str] = None, current_user: Optional[User] = None
@@ -284,47 +334,8 @@ class VisitorService(BaseService[VisitSession]):
         await self.commit()
         refreshed = await self.visitor_repo.get_session_by_id(session_id)
 
-        # Trigger EXIT WhatsApp message
-        try:
-            async with self.db.begin_nested():
-                from app.services.communication_service import CommunicationService
-                comm_service = CommunicationService(self.db)
-                profile = refreshed.visitor_profile
-                if profile:
-                    await comm_service.prepare_and_record_message(
-                        visitor_id=None,
-                        phone=profile.phone_number,
-                        message_type="EXIT",
-                        context={
-                            "name": profile.name,
-                            "phone": profile.phone_number,
-                            "date": str(refreshed.visit_date),
-                            "time": str(now_time),
-                            "duration": str(dur_str),
-                            "visitor_id": profile.visitor_id,
-                            "temple": "Sri Kalki Seva Alayam",
-                            "volunteer": current_user.full_name or current_user.username if current_user else "Volunteer",
-                        },
-                    )
-        except Exception as e:
-            logger.error(f"EXIT notification failed silently: {e}")
-
-        # Broadcast real-time CHECKED_OUT event
-        try:
-            from app.core.websocket import websocket_manager
-            await websocket_manager.broadcast_event(
-                "CHECKED_OUT",
-                {
-                    "session_id": str(refreshed.id),
-                    "visitor_profile_id": str(refreshed.visitor_profile_id),
-                    "name": refreshed.visitor_profile.name if refreshed.visitor_profile else "Visitor",
-                    "phone": refreshed.visitor_profile.phone_number if refreshed.visitor_profile else "",
-                    "status": "CHECKED_OUT",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }
-            )
-        except Exception:
-            pass
+        await self._send_exit_notification(refreshed, now_time, dur_str, current_user)
+        await self._broadcast_checkout_event(refreshed)
 
         return refreshed or session_record
 
@@ -380,7 +391,7 @@ class VisitorService(BaseService[VisitSession]):
 
         await self.visitor_repo.auto_close_past_sessions(today)
 
-        sessions, total = await self.visitor_repo.search_and_filter(
+        sessions, _ = await self.visitor_repo.search_and_filter(
             date_from=v_date, date_to=v_date, page=1, limit=500
         )
 
@@ -391,7 +402,7 @@ class VisitorService(BaseService[VisitSession]):
 
         purpose_bd = {}
         for s in sessions:
-            pname = s.purpose.name_en if s.purpose else "General Darshan"
+            pname = s.purpose.name_en if s.purpose else DEFAULT_PURPOSE_NAME
             purpose_bd[pname] = purpose_bd.get(pname, 0) + s.persons_count
 
         volunteer_bd = {}
@@ -432,7 +443,7 @@ class VisitorService(BaseService[VisitSession]):
         today = date.today()
         await self.visitor_repo.auto_close_past_sessions(today)
 
-        items, total = await self.visitor_repo.search_and_filter(
+        items, _ = await self.visitor_repo.search_and_filter(
             search=search,
             date_from=date_from,
             date_to=date_to,
@@ -543,4 +554,15 @@ class VisitorService(BaseService[VisitSession]):
             "total_ledgers": len(ledger_items),
             "today_ledger": today_ledger,
         }
+
+    async def reset_all_data(self) -> int:
+        """
+        Delete all visit sessions and visitor profiles to reset backend data to 0.
+        """
+        from sqlalchemy import delete
+        res1 = await self.db_session.execute(delete(VisitSession))
+        res2 = await self.db_session.execute(delete(VisitorProfile))
+        await self.db_session.commit()
+        return (res1.rowcount or 0) + (res2.rowcount or 0)
+
 
