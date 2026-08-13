@@ -317,7 +317,8 @@ export default function DailyVisitLedgerPage() {
 
   const handleExportExcel = async () => {
     try {
-      const XLSX = await import("xlsx");
+      const XLSXModule = await import("xlsx");
+      const XLSX = XLSXModule.default || XLSXModule;
       const headers = [
         "Ledger Date", "Session ID", "Visitor Name", "Phone", "Persons Count", "Purpose",
         "Check-In", "Check-Out", "Duration", "Status", "Volunteer", "Sync State", "GPS Available", "Read-Only Ledger"
@@ -357,7 +358,11 @@ export default function DailyVisitLedgerPage() {
 
   const handleExportPDF = async () => {
     try {
-      const { jsPDF } = await import("jspdf");
+      const jsPDFModule = await import("jspdf");
+      const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF || jsPDFModule;
+      const autoTableModule = await import("jspdf-autotable");
+      const autoTable = autoTableModule.default || autoTableModule;
+
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
 
       doc.setFontSize(16);
@@ -366,64 +371,78 @@ export default function DailyVisitLedgerPage() {
 
       doc.setFontSize(10);
       doc.setTextColor(100, 116, 139);
-      doc.text(`Generated on: ${new Date().toLocaleString()} | Filter: ${dateFilter} | Total Visitors: ${overallTotals.visitors}`, 14, 22);
+      doc.text(
+        `Generated on: ${new Date().toLocaleString()} | Filter: ${dateFilter} | Total Devotees: ${overallTotals.visitors} | Inside: ${overallTotals.inside}`,
+        14,
+        22
+      );
 
-      let yPos = 30;
+      let startY = 28;
 
       filteredLedgers.forEach((ledger) => {
-        if (yPos > 175) {
-          doc.addPage();
-          yPos = 15;
-        }
-
         doc.setFontSize(11);
         doc.setTextColor(217, 119, 6);
-        doc.text(`Ledger Date: ${ledger.summary.display_date || ledger.date} (Total: ${ledger.summary.total_visitors}, Inside: ${ledger.summary.people_inside}, Checked Out: ${ledger.summary.checked_out})`, 14, yPos);
-        yPos += 7;
+        doc.text(
+          `Ledger Date: ${ledger.summary.display_date || ledger.date}  (Total: ${ledger.summary.total_visitors} | Inside: ${ledger.summary.people_inside} | Checked Out: ${ledger.summary.checked_out})`,
+          14,
+          startY
+        );
+        startY += 4;
 
-        // Table Header
-        doc.setFontSize(8.5);
-        doc.setTextColor(255, 255, 255);
-        doc.setFillColor(30, 41, 59);
-        doc.rect(14, yPos, 269, 6.5, "F");
-        doc.text("Visitor Name", 16, yPos + 4.5);
-        doc.text("Phone", 65, yPos + 4.5);
-        doc.text("Count", 105, yPos + 4.5);
-        doc.text("Purpose", 125, yPos + 4.5);
-        doc.text("Check-In", 175, yPos + 4.5);
-        doc.text("Check-Out", 210, yPos + 4.5);
-        doc.text("Status", 248, yPos + 4.5);
-        yPos += 8.5;
+        const tableBody = ledger.sessions.map((s) => [
+          s.name || "Visitor",
+          s.phone_number || s.phone || "N/A",
+          (s.persons_count || 1).toString(),
+          s.purpose?.name_en || s.purpose_name || "General Darshan",
+          s.check_in_time || s.visitor_time || "N/A",
+          s.check_out_time || (s.status === "AUTO_CLOSED" ? "23:59:59 (Auto)" : "N/A"),
+          s.duration || (s.status === "INSIDE" ? "Ongoing" : "Completed"),
+          s.status || "INSIDE",
+          s.volunteer_name || s.volunteer_id || "admin",
+          s.sync_status || "SYNCED",
+        ]);
 
-        doc.setFontSize(8);
-        doc.setTextColor(51, 65, 85);
-
-        ledger.sessions.forEach((s, sIdx) => {
-          if (yPos > 185) {
-            doc.addPage();
-            yPos = 15;
-          }
-          if (sIdx % 2 === 1) {
-            doc.setFillColor(241, 245, 249);
-            doc.rect(14, yPos - 3.5, 269, 5.5, "F");
-          }
-          doc.text(String(s.name || "Visitor").slice(0, 24), 16, yPos);
-          doc.text(String(s.phone_number || s.phone || "N/A"), 65, yPos);
-          doc.text(String(s.persons_count || 1), 105, yPos);
-          doc.text(String(s.purpose?.name_en || s.purpose_name || "General Darshan").slice(0, 26), 125, yPos);
-          doc.text(String(s.check_in_time || s.visitor_time || "N/A"), 175, yPos);
-          doc.text(String(s.check_out_time || "N/A"), 210, yPos);
-          doc.text(String(s.status || "INSIDE"), 248, yPos);
-          yPos += 5.5;
+        autoTable(doc, {
+          startY: startY,
+          head: [
+            [
+              "Visitor Name",
+              "Phone",
+              "Count",
+              "Purpose",
+              "Check-In",
+              "Check-Out",
+              "Duration",
+              "Status",
+              "Volunteer",
+              "Sync State",
+            ],
+          ],
+          body: tableBody,
+          theme: "striped",
+          headStyles: {
+            fillColor: [30, 41, 59],
+            textColor: [255, 255, 255],
+            fontSize: 9,
+            fontStyle: "bold",
+          },
+          bodyStyles: {
+            fontSize: 8.5,
+            textColor: [51, 65, 85],
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252],
+          },
+          margin: { left: 14, right: 14 },
         });
 
-        yPos += 5;
+        startY = (doc as any).lastAutoTable.finalY + 10;
       });
 
       doc.save(`daily_visit_ledger_report_${Date.now()}.pdf`);
     } catch (err) {
       console.error("PDF export error:", err);
-      window.print();
+      alert("Could not generate PDF file. Please try again.");
     }
   };
 
