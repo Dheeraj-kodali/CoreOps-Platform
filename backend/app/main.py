@@ -1,6 +1,10 @@
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+while backend_dir in sys.path:
+    sys.path.remove(backend_dir)
+sys.path.insert(0, backend_dir)
 
 import time
 from contextlib import asynccontextmanager
