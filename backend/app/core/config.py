@@ -43,14 +43,31 @@ class Settings(BaseSettings):
         "*",
     ]
 
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Any) -> List[str]:
+        if isinstance(v, str):
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [i.strip() for i in v.split(",") if i.strip()]
+        elif isinstance(v, list):
+            return v
+        return [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "https://bejewelled-kitsune-115083.netlify.app",
+            "*",
+        ]
+
     @field_validator("DATABASE_URL")
     @classmethod
     def validate_database_url(cls, v: Optional[str]) -> str:
         if not v or not v.strip():
-            raise ValueError(
-                "CRITICAL STARTUP FAILURE: DATABASE_URL environment variable is missing or empty. "
-                "Please configure DATABASE_URL in backend/.env file (e.g. Neon PostgreSQL or SQLite)."
-            )
+            return "sqlite+aiosqlite:///./temple.db"
         url = v.strip()
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
@@ -65,7 +82,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=True,
+        case_sensitive=False,
         extra="ignore"
     )
 
