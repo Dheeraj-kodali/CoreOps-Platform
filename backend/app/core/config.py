@@ -52,8 +52,14 @@ class Settings(BaseSettings):
                 "Please configure DATABASE_URL in backend/.env file (e.g. Neon PostgreSQL or SQLite)."
             )
         url = v.strip()
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://") and not url.startswith("postgresql+asyncpg://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
         if "postgresql+asyncpg://" in url:
             url = url.replace("sslmode=require", "ssl=require").replace("sslmode=prefer", "ssl=prefer").replace("sslmode=disable", "ssl=disable")
+            url = url.replace("&channel_binding=require", "").replace("?channel_binding=require", "")
         return url
 
     model_config = SettingsConfigDict(
