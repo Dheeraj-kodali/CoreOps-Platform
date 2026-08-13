@@ -371,6 +371,12 @@ export default function DailyVisitLedgerPage() {
     }
   };
 
+  const cleanAscii = (str: string | null | undefined, fallback: string = "N/A"): string => {
+    if (!str) return fallback;
+    const clean = str.replace(/[^\x00-\x7F]/g, "").trim();
+    return clean.length > 0 ? clean : fallback;
+  };
+
   const handleExportPDF = async () => {
     try {
       const jsPDFModule = await import("jspdf");
@@ -387,7 +393,7 @@ export default function DailyVisitLedgerPage() {
       doc.setFontSize(10);
       doc.setTextColor(100, 116, 139);
       doc.text(
-        `Generated on: ${new Date().toLocaleString()} | Filter: ${dateFilter} | Total Devotees: ${overallTotals.visitors} | Inside: ${overallTotals.inside}`,
+        `Generated on: ${new Date().toLocaleString()} | Filter: ${cleanAscii(dateFilter, "TODAY")} | Total Devotees: ${overallTotals.visitors} | Inside: ${overallTotals.inside}`,
         14,
         22
       );
@@ -398,23 +404,23 @@ export default function DailyVisitLedgerPage() {
         doc.setFontSize(11);
         doc.setTextColor(217, 119, 6);
         doc.text(
-          `Ledger Date: ${ledger.summary.display_date || ledger.date}  (Total: ${ledger.summary.total_visitors} | Inside: ${ledger.summary.people_inside} | Checked Out: ${ledger.summary.checked_out})`,
+          `Ledger Date: ${cleanAscii(ledger.summary.display_date || ledger.date, "Today")}  (Total: ${ledger.summary.total_visitors} | Inside: ${ledger.summary.people_inside} | Checked Out: ${ledger.summary.checked_out})`,
           14,
           startY
         );
         startY += 4;
 
         const tableBody = ledger.sessions.map((s) => [
-          s.name || "Visitor",
-          s.phone_number || s.phone || "N/A",
+          cleanAscii(s.name, "Visitor"),
+          cleanAscii(s.phone_number || s.phone, "N/A"),
           (s.persons_count || 1).toString(),
-          s.purpose?.name_en || s.purpose_name || "General Darshan",
-          s.check_in_time || s.visitor_time || "N/A",
-          s.check_out_time || (s.status === "AUTO_CLOSED" ? "23:59:59 (Auto)" : "N/A"),
-          s.duration || (s.status === "INSIDE" ? "Ongoing" : "Completed"),
-          s.status || "INSIDE",
-          s.volunteer_name || s.volunteer_id || "admin",
-          s.sync_status || "SYNCED",
+          cleanAscii(s.purpose?.name_en || s.purpose_name, "General Darshan"),
+          cleanAscii(s.check_in_time || s.visitor_time, "N/A"),
+          cleanAscii(s.check_out_time, s.status === "AUTO_CLOSED" ? "23:59:59 (Auto)" : "N/A"),
+          cleanAscii(s.duration, s.status === "INSIDE" ? "Ongoing" : "Completed"),
+          cleanAscii(s.status, "INSIDE"),
+          cleanAscii(s.volunteer_name || s.volunteer_id, "admin"),
+          cleanAscii(s.sync_status, "SYNCED"),
         ]);
 
         autoTable(doc, {
@@ -454,7 +460,8 @@ export default function DailyVisitLedgerPage() {
         startY = (doc as any).lastAutoTable.finalY + 10;
       });
 
-      const pdfBlob = doc.output("blob");
+      const pdfArrayBuffer = doc.output("arraybuffer");
+      const pdfBlob = new Blob([pdfArrayBuffer], { type: "application/pdf" });
       const filename = `daily_visit_ledger_report_${dateFilter.toLowerCase()}_${Date.now()}.pdf`;
       const blobUrl = URL.createObjectURL(pdfBlob);
       const link = document.createElement("a");
